@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { loadAccount, loginAccount, logoutAccount, saveAccount } from "./supabase-api";
 
 type Tab = "today" | "workout" | "records" | "food";
 type Persona = "T" | "F";
@@ -17,7 +18,6 @@ const PLAN_START = "2026-08-10";
 const PLAN_TARGET = "2026-09-30";
 
 const INITIAL_WEIGHTS: WeightEntry[] = [
-  { day: 1, weight: 74 },
 ];
 
 const MILESTONES = [
@@ -112,7 +112,8 @@ const DAILY = [
   { image: "/motivation-01.png", quote: "계속하는 사람이 결국 원하는 사람이 된다.", cue: "이번 주의 마지막 점 하나를 채워보세요." },
 ];
 
-const STORAGE_KEY = "pace50-state-v4";
+const STORAGE_KEY = "pace50-state-v5";
+const SESSION_KEY = "pace50-account-session";
 
 const FOOD_LIBRARY: Array<{ aliases: string[]; advice: FoodAdvice }> = [
   { aliases: ["짜장면", "자장면"], advice: { name: "짜장면", verdict: "먹어도 돼요 · 양 조절 필요", tone: "careful", calories: "약 800—950 kcal", serving: "보통 1그릇 · 가게와 조리법에 따라 차이", fact: "면과 춘장 소스가 함께 들어가 탄수화물·나트륨이 높은 한 끼예요. 한 그릇을 다 비우면 오늘 식사 중 가장 큰 열량이 될 가능성이 큽니다.", encouragement: "짜장면 한 끼가 감량을 망치지는 않아요. 오늘은 ‘안 먹기’보다 ‘덜 먹고 만족하기’를 연습해요.", actions: ["면은 70% 정도에서 멈추기", "군만두·볶음밥·달달한 음료는 함께 먹지 않기", "다음 끼니는 굶지 말고 단백질+채소 위주로 평소의 70—80%"] } },
@@ -207,6 +208,11 @@ export default function Home() {
   const [pastForm, setPastForm] = useState({ date: dateKey(), weight: "", muscle: "", bodyFat: "" });
   const [foodQuery, setFoodQuery] = useState("");
   const [foodChats, setFoodChats] = useState<FoodChat[]>([]);
+  const [session, setSession] = useState<{ token: string; name: string } | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [authForm, setAuthForm] = useState({ name: "", pin: "" });
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState("");
   const [hydrated, setHydrated] = useState(false);
 
   const today = accessDate;
@@ -221,47 +227,43 @@ export default function Home() {
   const recordedWeightDates = useMemo(() => new Set(weights.map((entry) => dateFromPlanDay(entry.day))), [weights]);
   const todayComplete = recordedWeightDates.has(today);
 
-  useEffect(() => {
-    const savedCurrent = localStorage.getItem(STORAGE_KEY);
-    const savedPrevious = localStorage.getItem("pace50-state-v3") ?? localStorage.getItem("pace50-state-v2");
-    const saved = savedCurrent ?? savedPrevious;
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
+  function hydrateState(parsed: Record<string, any>) {
         const loadedWeights: WeightEntry[] = parsed.weights?.length ? parsed.weights : INITIAL_WEIGHTS;
-        const shiftedWeights = savedCurrent ? loadedWeights : loadedWeights.map((entry) => ({ ...entry, day: entry.day + 2 }));
-        setWeights(shiftedWeights.filter((entry) => entry.day <= planDayForDate(today)));
+        setWeights(loadedWeights.filter((entry) => entry.day <= planDayForDate(today)));
         setTravelMode(Boolean(parsed.travelMode));
         setChecks(parsed.checks ?? {});
         setNextPersona(parsed.nextPersona ?? "T");
-        setLoadHistory(savedCurrent ? (parsed.loadHistory ?? []) : (parsed.loadHistory ?? []).map((entry: LoadEntry) => ({ ...entry, day: entry.day + 2 })));
+        setLoadHistory(parsed.loadHistory ?? []);
         setLoadInputs(parsed.loadInputs ?? {});
         setStreak(parsed.streak ?? 0);
         setFreezePasses(parsed.freezePasses ?? 1);
         setActiveDates(parsed.activeDates ?? []);
         setBodyStats((parsed.bodyStats ?? []).filter((entry: BodyStat) => entry.date >= PLAN_START && entry.date <= today).map((entry: BodyStat) => ({ ...entry, day: planDayForDate(entry.date) })));
         setFoodChats(parsed.foodChats ?? []);
+  }
 
-        const dates: string[] = parsed.activeDates ?? [];
-        const last = [...dates].sort().at(-1);
-        if (last && dayGap(last, today) > 1) {
-          if ((parsed.freezePasses ?? 1) > 0 && dayGap(last, today) === 2) {
-            setFreezePasses((parsed.freezePasses ?? 1) - 1);
-          } else {
-            setStreak(0);
-          }
-        }
-      } catch { /* Keep safe defaults. */ }
-    }
-    if (localStorage.getItem("pace50-inspiration-date") !== today) setDailyOpen(true);
+  useEffect(() => {
+    const savedSession = localStorage.getItem(SESSION_KEY);
+    if (savedSession) {
+      try {
+        const parsedSession = JSON.parse(savedSession) as { token: string; name: string };
+        loadAccount(parsedSession.token).then((result) => {
+          if (result.ok && result.name) {
+            setSession({ token: parsedSession.token, name: result.name });
+            hydrateState(result.state ?? {});
+          } else localStorage.removeItem(SESSION_KEY);
+        }).catch(() => localStorage.removeItem(SESSION_KEY)).finally(() => { setHydrated(true); setAuthReady(true); });
+      } catch { localStorage.removeItem(SESSION_KEY); setHydrated(true); setAuthReady(true); }
+    } else { setHydrated(true); setAuthReady(true); }
     const now = new Date();
     const current = dateKey(now);
     setAccessDate(current);
     setSelectedDate(clampPlanDate(current, current > PLAN_TARGET ? PLAN_TARGET : current < PLAN_START ? PLAN_START : current));
     setPastForm((value) => ({ ...value, date: clampPlanDate(current, current > PLAN_TARGET ? PLAN_TARGET : current < PLAN_START ? PLAN_START : current) }));
     setHour(now.getHours());
-    setHydrated(true);
-  }, [today]);
+  }, []);
+
+  useEffect(() => { if (session && localStorage.getItem("pace50-inspiration-date") !== today) setDailyOpen(true); }, [session, today]);
 
   useEffect(() => {
     const timer = window.setInterval(() => { const now = new Date(); setHour(now.getHours()); setAccessDate(dateKey(now)); }, 60_000);
@@ -278,8 +280,12 @@ export default function Home() {
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats }));
-  }, [weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats, hydrated]);
+    if (!session) return;
+    const state = { weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const timer = window.setTimeout(() => saveAccount(session.token, state).catch(() => undefined), 500);
+    return () => window.clearTimeout(timer);
+  }, [weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats, hydrated, session]);
 
   const stageIndex = stageForDay(day);
   const availableWeights = weights.filter((entry) => entry.day <= accessDay);
@@ -466,6 +472,35 @@ export default function Home() {
     setFoodChats((items) => [...items.slice(-7), { id: Date.now(), query, advice: analyzeFood(query) }]);
   }
 
+  async function submitLogin(event: FormEvent) {
+    event.preventDefault();
+    const name = authForm.name.trim();
+    if (name.length < 2) { setAuthError("이름을 두 글자 이상 입력해 주세요."); return; }
+    if (!/^\d{4}$/.test(authForm.pin)) { setAuthError("초기 접속번호는 숫자 4자리입니다."); return; }
+    setAuthBusy(true); setAuthError("");
+    try {
+      const result = await loginAccount(name, authForm.pin);
+      if (!result.ok || !result.token || !result.name) { setAuthError(result.error ?? "이름 또는 접속번호를 확인해 주세요."); return; }
+      const nextSession = { token: result.token, name: result.name };
+      setSession(nextSession);
+      localStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
+      hydrateState(result.state ?? {});
+      setDailyOpen(true);
+    } catch (error) { setAuthError(error instanceof Error ? error.message : "로그인에 실패했습니다."); }
+    finally { setAuthBusy(false); }
+  }
+
+  async function signOut() {
+    if (session) await logoutAccount(session.token).catch(() => undefined);
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(STORAGE_KEY);
+    setSession(null); setWeights([]); setChecks({}); setLoadHistory([]); setLoadInputs({}); setActiveDates([]); setBodyStats([]); setFoodChats([]); setDailyOpen(false); setAuthForm({ name: "", pin: "" });
+  }
+
+  if (!authReady) return <main className="auth-loading"><div className="auth-loader" /><span>자기관리 공간을 준비하고 있어요</span></main>;
+
+  if (!session) return <main className="login-page"><section className="login-visual"><div className="login-brand"><span>50</span><b>PACE MAKER</b></div><div className="login-copy"><p>50일, 나를 바꾸는 가장 현실적인 기록</p><h1>자기관리의<br /><em>시작</em></h1><span>체중 · 운동 · 식사를 한곳에서 이어가세요.</span></div><div className="login-stats"><div><b>50</b><span>DAY PLAN</span></div><div><b>4</b><span>MILESTONES</span></div><div><b>1</b><span>DAILY PROMISE</span></div></div></section><section className="login-panel"><div className="login-form-wrap"><p className="section-label">WELCOME TO YOUR PACE</p><h2>내 기록 시작하기</h2><p className="login-help">처음 입력한 이름과 숫자 4자리가 내 접속 정보가 됩니다. 다음부터 같은 정보로 로그인하세요.</p><form onSubmit={submitLogin}><label htmlFor="account-name">이름</label><input id="account-name" autoComplete="username" maxLength={20} value={authForm.name} onChange={(e) => setAuthForm((value) => ({ ...value, name: e.target.value }))} placeholder="사용할 이름" /><label htmlFor="account-pin">초기 접속번호</label><input id="account-pin" type="password" inputMode="numeric" autoComplete="current-password" maxLength={4} value={authForm.pin} onChange={(e) => setAuthForm((value) => ({ ...value, pin: e.target.value.replace(/\D/g, "").slice(0, 4) }))} placeholder="숫자 4자리" /><div className="pin-preview" aria-hidden="true">{[0,1,2,3].map((index) => <i key={index} className={authForm.pin.length > index ? "filled" : ""} />)}</div>{authError && <p className="auth-error" role="alert">{authError}</p>}<button type="submit" disabled={authBusy}>{authBusy ? "확인 중…" : "시작하기"}<span>→</span></button></form><small>접속번호는 암호화되어 저장됩니다. 공용 기기에서는 사용 후 로그아웃하세요.</small></div></section></main>;
+
   return (
     <main className={travelMode ? "app travel-on" : "app"}>
       {travelMode && <div className="travel-banner"><span>여행 모드 · 오늘의 목표는 유지</span><strong>한 끼에 즐거움 하나</strong></div>}
@@ -475,7 +510,7 @@ export default function Home() {
         <div className="header-actions">
           <button className={todayComplete ? "streak-chip safe" : "streak-chip"} onClick={() => document.getElementById("streak")?.scrollIntoView()}><span>🔥</span><b>{weightStreak}일 연속</b></button>
           <label className="travel-switch"><input type="checkbox" checked={travelMode} onChange={(event) => setTravelMode(event.target.checked)} /><span aria-hidden="true" />여행</label>
-          <button className="avatar" aria-label="프로필">K</button>
+          <button className="avatar" onClick={signOut} aria-label={`${session.name} 로그아웃`} title="로그아웃">{session.name.slice(0, 1)}</button>
         </div>
       </header>
 

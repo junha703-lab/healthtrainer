@@ -11,8 +11,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host?.includes("localhost") ? "http" : "https");
   const imageUrl = host ? `${protocol}://${host}/og.png` : undefined;
-  const title = "50일 다이어트 페이스메이커";
-  const description = "무리하지 않고 끝까지 가는 50일 체중·운동·식사 페이스메이커";
+  const title = "자기관리의 시작 · 50일 페이스메이커";
+  const description = "나만의 체중·운동·식사 기록으로 시작하는 50일 자기관리";
 
   return {
     title,
