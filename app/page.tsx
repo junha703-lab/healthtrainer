@@ -246,7 +246,9 @@ export default function Home() {
         setBodyStats((parsed.bodyStats ?? []).filter((entry: BodyStat) => entry.date >= PLAN_START && entry.date <= today).map((entry: BodyStat) => ({ ...entry, day: planDayForDate(entry.date) })));
         setFoodChats(parsed.foodChats ?? []);
         setHeightCm(Number(parsed.heightCm) >= 120 && Number(parsed.heightCm) <= 230 ? Number(parsed.heightCm) : null);
-        setProfileSetupCompleted(typeof parsed.profileSetupCompleted === "boolean" ? parsed.profileSetupCompleted : true);
+        const setupComplete = typeof parsed.profileSetupCompleted === "boolean" ? parsed.profileSetupCompleted : true;
+        setProfileSetupCompleted(setupComplete);
+        setProfileSetupOpen(!setupComplete);
   }
 
   useEffect(() => {
@@ -270,7 +272,7 @@ export default function Home() {
     setHour(now.getHours());
   }, []);
 
-  useEffect(() => { if (session && localStorage.getItem("pace50-inspiration-date") !== today) setDailyOpen(true); }, [session, today]);
+  useEffect(() => { if (session && profileSetupCompleted && !profileSetupOpen && localStorage.getItem("pace50-inspiration-date") !== today) setDailyOpen(true); }, [session, today, profileSetupCompleted, profileSetupOpen]);
 
   useEffect(() => {
     const timer = window.setInterval(() => { const now = new Date(); setHour(now.getHours()); setAccessDate(dateKey(now)); }, 60_000);
@@ -379,10 +381,6 @@ export default function Home() {
   }
 
   function closeDaily() {
-    if (!profileSetupCompleted) {
-      setProfileSetupOpen(true);
-      return;
-    }
     localStorage.setItem("pace50-inspiration-date", today);
     setDailyOpen(false);
   }
@@ -404,8 +402,7 @@ export default function Home() {
     setProfileSetupCompleted(true);
     setProfileSetupOpen(false);
     setProfileError("");
-    localStorage.setItem("pace50-inspiration-date", today);
-    setDailyOpen(false);
+    setDailyOpen(true);
   }
 
   function openCoach(eyebrow: string, tCopy: string, fCopy: string) {
@@ -524,10 +521,12 @@ export default function Home() {
       hydrateState(result.state ?? {});
       if (result.created) {
         setProfileSetupCompleted(false);
-        setProfileSetupOpen(false);
+        setProfileSetupOpen(true);
         setProfileForm({ weight: "", height: "" });
+        setDailyOpen(false);
+      } else {
+        setDailyOpen(true);
       }
-      setDailyOpen(true);
     } catch (error) { setAuthError(error instanceof Error ? error.message : "로그인에 실패했습니다."); }
     finally { setAuthBusy(false); }
   }
@@ -672,7 +671,9 @@ export default function Home() {
 
       {guide && selectedGuide && <div className="guide-backdrop" onMouseDown={() => setSelectedGuide(null)}><section className="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title" onMouseDown={(e) => e.stopPropagation()}><button className="guide-close" onClick={() => setSelectedGuide(null)} aria-label="자세 가이드 닫기">×</button><div className="guide-heading"><div><p>FORM GUIDE · {guide.focus}</p><h2 id="guide-title">{selectedGuide} 올바른 순서</h2></div><span>{guide.program ? selectedGuide === "하체 날 런닝머신 걷기" ? "30 MIN" : "15 MIN" : "4 × 15"}</span></div><div className="guide-tabs" role="tablist"><button className={guideView === "photo" ? "active" : ""} onClick={() => setGuideView("photo")}>단계별 사진</button><button className={guideView === "motion" ? "active" : ""} onClick={() => setGuideView("motion")}>동작 영상</button></div>{guideView === "photo" ? <img className="guide-media" src={guide.image} alt={`${selectedGuide} 시작, 동작, 마무리 자세 순서`} /> : <div className="motion-player"><img src={guide.motion} alt={`${selectedGuide} 동작 영상 미리보기`} /><span>동작 영상 · 자동 반복</span></div>}{guide.program && <div className="guide-program">{guide.program.map((item, index) => <div key={item.time}><b>{String(index + 1).padStart(2, "0")}</b><span>{item.time}</span><strong>{item.target}</strong></div>)}</div>}<ol>{guide.steps.map((step, index) => <li key={step}><b>0{index + 1}</b><span>{step}</span></li>)}</ol><div className="guide-caution"><strong>!</strong><span><b>안전 체크</b>{guide.caution}</span></div><button className="guide-confirm" onClick={() => setSelectedGuide(null)}>자세 확인했어요</button></section></div>}
 
-      {dailyOpen && <div className="daily-backdrop"><section className="daily-card" style={{ backgroundImage: `linear-gradient(90deg, rgba(10,17,31,.94), rgba(10,17,31,.18)), url(${daily.image})` }} role="dialog" aria-modal="true" aria-labelledby="daily-title"><div className="daily-top"><div className="daily-streak">🔥 {weightStreak}일 연속 · {dDay > 0 ? `D-${dDay}` : dDay === 0 ? "D-DAY" : `D+${Math.abs(dDay)}`}</div><div className={`daily-mascot ${mascot.state}`} role="img" aria-label={`${mascot.label} 호랑이 코치`} /></div><div className="daily-content"><p>DAY {accessDay} · {mascot.label}의 한 문장</p><h2 id="daily-title">{daily.quote}</h2><span>{todayComplete ? "오늘 체중 기록 완료. 불꽃을 지켰어요!" : mascot.message}</span>{profileSetupOpen ? <form className="profile-setup-form" onSubmit={(event) => { event.preventDefault(); finishProfileSetup(); }}><div className="profile-setup-heading"><b>처음 한 번만 알려주세요</b><span>BMI와 체중 변화를 사용자에게 맞게 계산해요.</span></div><div className="profile-setup-fields"><label><span>초기 체중</span><div><input autoFocus inputMode="decimal" placeholder="예: 70.5" value={profileForm.weight} onChange={(event) => setProfileForm((value) => ({ ...value, weight: event.target.value }))} /><b>kg</b></div></label><label><span>키</span><div><input inputMode="decimal" placeholder="예: 172" value={profileForm.height} onChange={(event) => setProfileForm((value) => ({ ...value, height: event.target.value }))} /><b>cm</b></div></label></div>{profileError && <p className="profile-error" role="alert">{profileError}</p>}<div className="profile-setup-actions"><button type="submit">입력하고 시작하기 <b>→</b></button><button type="button" className="profile-skip" onClick={() => finishProfileSetup(true)}>지금은 건너뛰기</button></div></form> : <button onClick={closeDaily}>오늘도 이어가기 <b>→</b></button>}</div></section></div>}
+      {profileSetupOpen && <div className="profile-onboarding-backdrop"><section className="profile-onboarding" role="dialog" aria-modal="true" aria-labelledby="profile-setup-title"><div className="profile-onboarding-mark">01</div><p>FIRST BODY CHECK</p><h2 id="profile-setup-title">첫 키와 몸무게를<br />알려주세요.</h2><span>BMI와 체중 변화는 여기서 입력한 값을 기준으로 계산합니다. 계정마다 한 번만 나타나요.</span><form className="profile-setup-form" onSubmit={(event) => { event.preventDefault(); finishProfileSetup(); }}><div className="profile-setup-fields"><label><span>첫 몸무게</span><div><input autoFocus inputMode="decimal" placeholder="예: 70.5" value={profileForm.weight} onChange={(event) => setProfileForm((value) => ({ ...value, weight: event.target.value }))} /><b>kg</b></div></label><label><span>키</span><div><input inputMode="decimal" placeholder="예: 172" value={profileForm.height} onChange={(event) => setProfileForm((value) => ({ ...value, height: event.target.value }))} /><b>cm</b></div></label></div>{profileError && <p className="profile-error" role="alert">{profileError}</p>}<div className="profile-setup-actions"><button type="submit">저장하고 시작하기 <b>→</b></button><button type="button" className="profile-skip" onClick={() => finishProfileSetup(true)}>지금은 건너뛰기</button></div></form><small>건너뛰어도 체중과 키는 나중에 기록할 수 있어요.</small></section></div>}
+
+      {dailyOpen && !profileSetupOpen && <div className="daily-backdrop"><section className="daily-card" style={{ backgroundImage: `linear-gradient(90deg, rgba(10,17,31,.94), rgba(10,17,31,.18)), url(${daily.image})` }} role="dialog" aria-modal="true" aria-labelledby="daily-title"><div className="daily-top"><div className="daily-streak">🔥 {weightStreak}일 연속 · {dDay > 0 ? `D-${dDay}` : dDay === 0 ? "D-DAY" : `D+${Math.abs(dDay)}`}</div><div className={`daily-mascot ${mascot.state}`} role="img" aria-label={`${mascot.label} 호랑이 코치`} /></div><div className="daily-content"><p>DAY {accessDay} · {mascot.label}의 한 문장</p><h2 id="daily-title">{daily.quote}</h2><span>{todayComplete ? "오늘 체중 기록 완료. 불꽃을 지켰어요!" : mascot.message}</span><button onClick={closeDaily}>오늘도 이어가기 <b>→</b></button></div></section></div>}
 
       {modal && <div className="modal-backdrop" role="presentation" onMouseDown={() => setModal(null)}><section className={`coach-modal modal-${modal.persona.toLowerCase()}`} role="dialog" aria-modal="true" aria-labelledby="coach-title" onMouseDown={(e) => e.stopPropagation()}><button className="modal-close" onClick={() => setModal(null)} aria-label="코칭 닫기">×</button><div className="modal-persona">{modal.persona}</div><p>{modal.eyebrow}</p><h2 id="coach-title">{modal.title}</h2><blockquote>{modal.body}</blockquote><button className="modal-confirm" onClick={() => setModal(null)}>좋아요, 그렇게 할게요</button></section></div>}
     </main>
