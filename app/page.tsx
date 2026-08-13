@@ -24,13 +24,15 @@ const MILESTONES = [
   { range: "DAY 1—10", name: "적응기", target: "73kg 전후", mission: "식사량 80% · 야식 줄이기" },
   { range: "DAY 11—30", name: "본격 감량기", target: "71kg 전후", mission: "밥 1/2—2/3공기" },
   { range: "DAY 31—40", name: "정체기 관리", target: "70kg 전후", mission: "저녁 밥 조금 더 줄이기" },
-  { range: "DAY 41—50", name: "마무리", target: "68—70kg", mission: "술·야식·간식 최소화" },
+  { range: "DAY 41—52", name: "마무리", target: "68—70kg", mission: "술·야식·간식 최소화" },
 ];
 
 const ROUTINES: Record<string, Exercise[]> = {
   push: [
     { name: "벤치프레스", detail: "4세트 × 15회", weighted: true },
     { name: "숄더프레스", detail: "4세트 × 15회", weighted: true },
+    { name: "체스트 플라이", detail: "가슴 수축에 집중 · 4세트 × 15회", weighted: true },
+    { name: "사이드 레터럴 레이즈", detail: "반동 없이 · 4세트 × 15회", weighted: true },
   ],
   pull: [
     { name: "랫풀다운", detail: "4세트 × 15회", weighted: true },
@@ -52,20 +54,24 @@ const ROUTINES: Record<string, Exercise[]> = {
 
 const OPTIONAL: Record<string, Exercise[]> = {
   push: [
-    { name: "체스트 플라이", detail: "가볍게 4세트 × 15회", weighted: true },
-    { name: "사이드 레터럴 레이즈", detail: "반동 없이 4세트 × 15회", weighted: true },
+    { name: "페이스 풀", detail: "어깨 균형 보완 · 4세트 × 15회", weighted: true },
+    { name: "데드버그", detail: "프레스 안정성을 위한 코어 · 좌우 4세트 × 15회" },
+    { name: "백 익스텐션", detail: "허리 중립 유지 · 4세트 × 15회" },
   ],
   pull: [
     { name: "페이스 풀", detail: "어깨 뒤쪽 4세트 × 15회", weighted: true },
     { name: "백 익스텐션", detail: "허리 중립 4세트 × 15회" },
+    { name: "데드버그", detail: "등 운동 안정성을 위한 코어 · 좌우 4세트 × 15회" },
   ],
   legs: [
     { name: "힙 어브덕션", detail: "둔근 집중 4세트 × 15회", weighted: true },
     { name: "카프 레이즈", detail: "정점 정지 4세트 × 15회", weighted: true },
+    { name: "데드버그", detail: "허리 부담 없는 코어 · 좌우 4세트 × 15회" },
   ],
   pain: [
     { name: "페이스 풀", detail: "앉아서 4세트 × 15회", weighted: true },
     { name: "데드버그", detail: "천천히 좌우 4세트 × 15회" },
+    { name: "백 익스텐션", detail: "통증 없는 범위 · 4세트 × 15회" },
   ],
 };
 
@@ -84,8 +90,9 @@ const EXERCISE_GUIDES: Record<string, ExerciseGuide> = {
   "힙 어브덕션": { image: "/exercise-hip-abduction.png", motion: "/exercise-hip-abduction-motion.webp", focus: "중둔근 · 둔근", steps: ["등을 등받이에 붙이고 발을 발판에 안정시켜요.", "무릎으로 패드를 밀어 양옆으로 부드럽게 벌려요.", "골반을 고정한 채 천천히 시작 위치로 돌아와요."], caution: "반동을 쓰거나 허리가 뜨면 중량과 가동범위를 줄이세요." },
   "카프 레이즈": { image: "/exercise-calf-raise.png", motion: "/exercise-calf-raise-motion.webp", focus: "종아리", steps: ["발 앞부분을 발판에 두고 뒤꿈치를 편안하게 내려요.", "무릎을 잠그지 않고 발끝으로 높이 올라가요.", "정점에서 잠깐 멈춘 뒤 끝까지 천천히 내려요."], caution: "발목이 안팎으로 꺾이지 않게 하고 아킬레스건 통증이 있으면 멈추세요." },
   데드버그: { image: "/exercise-deadbug.png", motion: "/exercise-deadbug-motion.webp", focus: "복부 · 코어", steps: ["허리를 바닥에 붙이고 팔을 위로, 무릎을 90도로 들어요.", "반대쪽 팔과 다리를 천천히 뻗되 허리가 뜨지 않게 해요.", "시작 자세로 돌아와 반대쪽을 반복해요."], caution: "허리가 뜨기 시작하면 팔과 다리를 덜 뻗으세요." },
-  "천국의 계단": { image: "/cardio-stair.png", motion: "/cardio-stair-motion.webp", focus: "15분 인터벌 · RPE 4—6", steps: ["몸을 세우고 손잡이는 균형을 잡을 만큼만 가볍게 잡아요.", "발바닥 전체를 계단에 올리고 짧고 일정한 보폭을 유지해요.", "마지막 3분은 강도를 낮춰 호흡을 천천히 회복해요."], caution: "말은 가능하지만 노래는 어려운 정도로 조절하고, 무릎 통증·어지럼이 있으면 즉시 강도를 낮추세요.", program: [{ time: "0—3분", target: "레벨 3 · 준비" }, { time: "3—6분", target: "레벨 4 · 안정" }, { time: "6—9분", target: "레벨 5 · 집중" }, { time: "9—12분", target: "레벨 6 · 도전" }, { time: "12—15분", target: "레벨 3 · 회복" }] },
-  "런닝머신 걷기": { image: "/cardio-treadmill.png", motion: "/cardio-treadmill-motion.webp", focus: "15분 경사 걷기 · RPE 4—6", steps: ["1% 경사에서 몸을 세우고 자연스럽게 걸으며 준비해요.", "손잡이를 잡지 말고 짧고 빠른 보폭으로 경사를 걸어요.", "마지막 3분은 속도와 경사를 낮춰 호흡을 회복해요."], caution: "속도는 참고값입니다. 말은 가능하지만 노래는 어려운 정도로 맞추고 통증·어지럼이 있으면 중단하세요.", program: [{ time: "0—3분", target: "4.5km/h · 1%" }, { time: "3—6분", target: "5.0km/h · 3%" }, { time: "6—9분", target: "5.5km/h · 5%" }, { time: "9—12분", target: "5.0km/h · 3%" }, { time: "12—15분", target: "4.5km/h · 1%" }] },
+  "천국의 계단": { image: "/cardio-stair.png", motion: "/cardio-stair-motion.webp", focus: "근력 후 15분 · RPE 5—6", steps: ["첫 2분은 낮은 레벨에서 자세와 호흡을 정리해요.", "이후 10분은 대화는 가능하지만 노래는 어려운 중강도로 일정하게 올라요.", "마지막 3분은 레벨을 낮추고 런닝머신으로 자연스럽게 이어가요."], caution: "손잡이에 체중을 싣지 말고, 무릎 통증·어지럼이 있으면 즉시 강도를 낮추거나 런닝머신으로 바꾸세요.", program: [{ time: "0—2분", target: "레벨 3 · 자세 정리" }, { time: "2—12분", target: "레벨 4—6 · 중강도 유지" }, { time: "12—15분", target: "레벨 3 · 전환 회복" }] },
+  "런닝머신 걷기": { image: "/cardio-treadmill.png", motion: "/cardio-treadmill-motion.webp", focus: "근력 후 15분 · 빠른 걷기", steps: ["몸을 세우고 손잡이를 잡지 않은 채 편한 속도로 시작해요.", "호흡이 안정되면 말할 수 있는 중강도로 속도나 경사를 하나만 올려요.", "마지막 3분은 속도와 경사를 낮춰 심박을 천천히 회복해요."], caution: "속도는 참고값입니다. 통증·어지럼이 있으면 즉시 낮추고, 하체 날에는 경사를 0—3%로 제한하세요.", program: [{ time: "0—3분", target: "4.5km/h · 경사 1%" }, { time: "3—12분", target: "5.0—5.5km/h · 경사 3—5%" }, { time: "12—15분", target: "4.2km/h · 경사 0—1%" }] },
+  "하체 날 런닝머신 걷기": { image: "/cardio-treadmill.png", motion: "/cardio-treadmill-motion.webp", focus: "하체 근력 후 30분 · 저충격", steps: ["첫 5분은 경사 0—1%에서 다리 상태를 확인하며 천천히 걸어요.", "중간 20분은 대화가 편한 RPE 3—4로 유지하고 보폭을 무리하게 늘리지 않아요.", "마지막 5분은 속도를 낮춰 다리의 긴장을 풀고 마무리해요."], caution: "하체 운동 뒤에는 천국의 계단을 하지 않습니다. 무릎이나 발목이 불편하면 경사를 0%로 낮추거나 시간을 줄이세요.", program: [{ time: "0—5분", target: "4.0—4.5km/h · 경사 0—1%" }, { time: "5—25분", target: "4.5—5.0km/h · 경사 1—3%" }, { time: "25—30분", target: "3.8—4.2km/h · 경사 0%" }] },
 };
 
 const DEFAULT_LOADS: Record<string, number> = {
@@ -208,6 +215,7 @@ export default function Home() {
   const accessDay = planDayForDate(today);
   const totalPlanDays = dayGap(PLAN_START, PLAN_TARGET) + 1;
   const dDay = dayGap(today, PLAN_TARGET);
+  const selectedDDay = dayGap(selectedDate, PLAN_TARGET);
   const viewingToday = selectedDate === today;
   const daily = DAILY[(new Date().getDay() + day) % DAILY.length];
   const recordedWeightDates = useMemo(() => new Set(weights.map((entry) => dateFromPlanDay(entry.day))), [weights]);
@@ -287,12 +295,15 @@ export default function Home() {
   const optionalExercises = painMode ? OPTIONAL.pain : OPTIONAL[routineKind];
   const stairProgram = EXERCISE_GUIDES["천국의 계단"].program ?? [];
   const treadmillProgram = EXERCISE_GUIDES["런닝머신 걷기"].program ?? [];
+  const legTreadmillProgram = EXERCISE_GUIDES["하체 날 런닝머신 걷기"].program ?? [];
   const cardio: Exercise[] = painMode
     ? [{ name: "좌식 사이클", detail: "20분 · 통증 없는 강도" }]
-    : [
-      { name: "천국의 계단", detail: "15분 · 3분 단위 레벨 인터벌", intervals: stairProgram },
-      { name: "런닝머신 걷기", detail: "15분 · 3분 단위 속도·경사 인터벌", intervals: treadmillProgram },
-    ];
+    : routineKind === "legs"
+      ? [{ name: "하체 날 런닝머신 걷기", detail: "30분 · 경사 0—3% 저강도 회복 걷기", intervals: legTreadmillProgram }]
+      : [
+        { name: "천국의 계단", detail: "15분 · 중강도를 일정하게 유지", intervals: stairProgram },
+        { name: "런닝머신 걷기", detail: "15분 · 빠른 걷기 후 쿨다운", intervals: treadmillProgram },
+      ];
   const allItems = [...exercises, ...cardio];
   const completed = allItems.filter(({ name }) => checks[`${selectedDate}-${painMode ? "pain" : "normal"}-${name}`] || checks[`${day}-${painMode ? "pain" : "normal"}-${name}`]).length;
   const chartData = selectedWeights.slice(-7);
@@ -477,7 +488,7 @@ export default function Home() {
               <p className="hero-cue">{daily.cue}</p>
               <div className="day-control"><button onClick={() => moveSelectedDate(-1)} disabled={selectedDate <= PLAN_START} aria-label="이전 날짜">−</button><span><b>DAY {day}</b><small> / {totalPlanDays}</small></span><button onClick={() => moveSelectedDate(1)} disabled={selectedDate >= availableEnd} aria-label="다음 날짜">＋</button></div>
             </div>
-            <div className="hero-progress"><strong>{dDay > 0 ? `D-${dDay}` : dDay === 0 ? "D-DAY" : `D+${Math.abs(dDay)}`}</strong><span>목표일 9월 30일 · {Math.round(accessDay / totalPlanDays * 100)}%</span></div>
+            <div className="hero-progress"><strong>{selectedDDay > 0 ? `D-${selectedDDay}` : selectedDDay === 0 ? "D-DAY" : `D+${Math.abs(selectedDDay)}`}</strong><span>목표일 9월 30일 · DAY {day} / {totalPlanDays}</span></div>
           </section>
 
           {!viewingToday && <section className="past-day-banner"><div><b>과거 기록 보기 · {selectedDate}</b><span>DAY {day}의 체중과 운동 기록을 지금도 수정할 수 있어요.</span></div><button onClick={() => setSelectedDate(clampPlanDate(today, availableEnd))}>오늘로 돌아가기</button></section>}
@@ -518,7 +529,7 @@ export default function Home() {
           <div className="routine-list">
             <p className="list-title"><span>STRENGTH</span><b>{exercises.length}개 필수 동작 · 동작명을 누르면 자세 보기</b></p>
             {exercises.map((exercise, index) => { const key = `${selectedDate}-${painMode ? "pain" : "normal"}-${exercise.name}`; const legacyKey = `${day}-${painMode ? "pain" : "normal"}-${exercise.name}`; return <ExerciseRow key={exercise.name} index={index + 1} exercise={exercise} checked={Boolean(checks[key] || checks[legacyKey])} kg={exercise.weighted ? currentLoad(exercise.name) : null} onAdjust={(delta) => adjustLoad(exercise.name, delta)} onToggle={() => toggleCheck(exercise)} onGuide={EXERCISE_GUIDES[exercise.name] ? () => { setGuideView("photo"); setSelectedGuide(exercise.name); } : undefined} />; })}
-            <p className="list-title cardio-title"><span>CARDIO</span><b>{painMode ? "저충격" : "30분"}</b></p>
+            <p className="list-title cardio-title"><span>CARDIO · 근력 운동 후</span><b>{painMode ? "저충격" : routineKind === "legs" ? "하체 보호 30분" : "중강도 30분"}</b></p>
             {cardio.map((exercise, index) => { const key = `${selectedDate}-${painMode ? "pain" : "normal"}-${exercise.name}`; const legacyKey = `${day}-${painMode ? "pain" : "normal"}-${exercise.name}`; return <ExerciseRow key={exercise.name} index={exercises.length + index + 1} exercise={exercise} checked={Boolean(checks[key] || checks[legacyKey])} kg={null} onAdjust={() => {}} onToggle={() => toggleCheck(exercise)} onGuide={EXERCISE_GUIDES[exercise.name] ? () => { setGuideView("photo"); setSelectedGuide(exercise.name); } : undefined} />; })}
             <p className="list-title optional-title"><span>OPTIONAL · 선택 운동</span><b>여유가 있는 날만 추가</b></p>
             <div className="optional-note">필수 운동을 끝낸 뒤 1—2개만 골라 가볍게 수행하세요.</div>
@@ -582,7 +593,7 @@ export default function Home() {
 
       <nav className="bottom-nav" aria-label="주 메뉴"><button className={tab === "today" ? "active" : ""} onClick={() => setTab("today")}><span className="nav-icon">●</span><b>오늘</b></button><button className={tab === "workout" ? "active" : ""} onClick={() => setTab("workout")}><span className="nav-icon">＋</span><b>운동</b>{completed > 0 && <i>{completed}</i>}</button><button className={tab === "food" ? "active" : ""} onClick={() => setTab("food")}><span className="nav-icon">✦</span><b>AI 식단</b></button><button className={tab === "records" ? "active" : ""} onClick={() => setTab("records")}><span className="nav-icon">▥</span><b>기록</b></button></nav>
 
-      {guide && selectedGuide && <div className="guide-backdrop" onMouseDown={() => setSelectedGuide(null)}><section className="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title" onMouseDown={(e) => e.stopPropagation()}><button className="guide-close" onClick={() => setSelectedGuide(null)} aria-label="자세 가이드 닫기">×</button><div className="guide-heading"><div><p>FORM GUIDE · {guide.focus}</p><h2 id="guide-title">{selectedGuide} 올바른 순서</h2></div><span>{guide.program ? "15 MIN" : "4 × 15"}</span></div><div className="guide-tabs" role="tablist"><button className={guideView === "photo" ? "active" : ""} onClick={() => setGuideView("photo")}>단계별 사진</button><button className={guideView === "motion" ? "active" : ""} onClick={() => setGuideView("motion")}>동작 영상</button></div>{guideView === "photo" ? <img className="guide-media" src={guide.image} alt={`${selectedGuide} 시작, 동작, 마무리 자세 순서`} /> : <div className="motion-player"><img src={guide.motion} alt={`${selectedGuide} 동작 영상 미리보기`} /><span>동작 영상 · 자동 반복</span></div>}{guide.program && <div className="guide-program">{guide.program.map((item, index) => <div key={item.time}><b>{String(index + 1).padStart(2, "0")}</b><span>{item.time}</span><strong>{item.target}</strong></div>)}</div>}<ol>{guide.steps.map((step, index) => <li key={step}><b>0{index + 1}</b><span>{step}</span></li>)}</ol><div className="guide-caution"><strong>!</strong><span><b>안전 체크</b>{guide.caution}</span></div><button className="guide-confirm" onClick={() => setSelectedGuide(null)}>자세 확인했어요</button></section></div>}
+      {guide && selectedGuide && <div className="guide-backdrop" onMouseDown={() => setSelectedGuide(null)}><section className="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title" onMouseDown={(e) => e.stopPropagation()}><button className="guide-close" onClick={() => setSelectedGuide(null)} aria-label="자세 가이드 닫기">×</button><div className="guide-heading"><div><p>FORM GUIDE · {guide.focus}</p><h2 id="guide-title">{selectedGuide} 올바른 순서</h2></div><span>{guide.program ? selectedGuide === "하체 날 런닝머신 걷기" ? "30 MIN" : "15 MIN" : "4 × 15"}</span></div><div className="guide-tabs" role="tablist"><button className={guideView === "photo" ? "active" : ""} onClick={() => setGuideView("photo")}>단계별 사진</button><button className={guideView === "motion" ? "active" : ""} onClick={() => setGuideView("motion")}>동작 영상</button></div>{guideView === "photo" ? <img className="guide-media" src={guide.image} alt={`${selectedGuide} 시작, 동작, 마무리 자세 순서`} /> : <div className="motion-player"><img src={guide.motion} alt={`${selectedGuide} 동작 영상 미리보기`} /><span>동작 영상 · 자동 반복</span></div>}{guide.program && <div className="guide-program">{guide.program.map((item, index) => <div key={item.time}><b>{String(index + 1).padStart(2, "0")}</b><span>{item.time}</span><strong>{item.target}</strong></div>)}</div>}<ol>{guide.steps.map((step, index) => <li key={step}><b>0{index + 1}</b><span>{step}</span></li>)}</ol><div className="guide-caution"><strong>!</strong><span><b>안전 체크</b>{guide.caution}</span></div><button className="guide-confirm" onClick={() => setSelectedGuide(null)}>자세 확인했어요</button></section></div>}
 
       {dailyOpen && <div className="daily-backdrop"><section className="daily-card" style={{ backgroundImage: `linear-gradient(90deg, rgba(10,17,31,.94), rgba(10,17,31,.18)), url(${daily.image})` }} role="dialog" aria-modal="true" aria-labelledby="daily-title"><div className="daily-top"><div className="daily-streak">🔥 {weightStreak}일 연속 · {dDay > 0 ? `D-${dDay}` : dDay === 0 ? "D-DAY" : `D+${Math.abs(dDay)}`}</div><div className={`daily-mascot ${mascot.state}`} role="img" aria-label={`${mascot.label} 호랑이 코치`} /></div><div className="daily-content"><p>DAY {accessDay} · {mascot.label}의 한 문장</p><h2 id="daily-title">{daily.quote}</h2><span>{todayComplete ? "오늘 체중 기록 완료. 불꽃을 지켰어요!" : mascot.message}</span><button onClick={closeDaily}>오늘도 이어가기 <b>→</b></button></div></section></div>}
 
