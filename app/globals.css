@@ -157,6 +157,28 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .coach-modal h2 { margin: 0; font-size: 25px; letter-spacing: -.04em; }.coach-modal blockquote { margin: 24px 0; padding-left: 18px; border-left: 2px solid var(--line); font-size: 16px; font-weight: 650; line-height: 1.65; letter-spacing: -.025em; }.modal-confirm { width: 100%; }
 @keyframes modal-in { from { opacity: 0; transform: translateY(18px); } }
 
+/* Streak celebration */
+.celebration-backdrop { position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; padding: 20px; overflow: hidden; background: radial-gradient(circle at 50% 42%, rgba(255,107,87,.22), transparent 34%), rgba(8,14,26,.9); backdrop-filter: blur(9px); }
+.celebration-card { position: relative; width: min(520px, 100%); padding: 36px 42px 40px; overflow: hidden; background: var(--white); color: var(--ink); text-align: center; box-shadow: 0 38px 110px rgba(0,0,0,.5); animation: celebration-pop .6s cubic-bezier(.2,.9,.22,1.25) both; }
+.celebration-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 8px; background: linear-gradient(90deg, var(--coral), #ffbf4a, var(--sage)); }
+.celebration-hero { position: relative; z-index: 2; width: 158px; height: 158px; margin: -4px auto 10px; animation: celebration-float 1.5s ease-in-out infinite; }
+.celebration-mascot { position: absolute; inset: 0; background-image: url('/coach-tiger-sprite.png'); background-size: 300% 100%; background-position: 50% center; background-repeat: no-repeat; filter: drop-shadow(0 13px 15px rgba(23,34,59,.18)); }
+.celebration-flame { position: absolute; right: 3px; top: -2px; font-size: 46px; filter: drop-shadow(0 6px 9px rgba(255,107,87,.4)); animation: celebration-flame .55s ease-in-out infinite alternate; }
+.celebration-card > p { position: relative; z-index: 2; margin: 5px 0 7px; color: var(--coral); font: 900 10px/1 var(--font-geist-mono); letter-spacing: .18em; }
+.celebration-card h2 { position: relative; z-index: 2; margin: 0; font-size: clamp(34px, 7vw, 52px); line-height: 1; letter-spacing: -.065em; }.celebration-card h2 strong { color: var(--coral); font-size: 1.35em; }
+.celebration-card blockquote { position: relative; z-index: 2; margin: 23px auto; max-width: 420px; font-size: 17px; font-weight: 780; line-height: 1.58; letter-spacing: -.025em; word-break: keep-all; }
+.celebration-checks { position: relative; z-index: 2; display: flex; justify-content: center; flex-wrap: wrap; gap: 7px; margin-bottom: 20px; }.celebration-checks span, .celebration-checks b { padding: 8px 11px; background: #edf3ea; color: #507254; font-size: 10px; font-weight: 900; }.celebration-checks b { background: #fff0c8; color: #936313; }
+.celebration-card > button { position: relative; z-index: 2; width: 100%; min-height: 53px; border: 0; padding: 0 17px; display: flex; align-items: center; justify-content: space-between; background: var(--ink); color: white; font-size: 13px; font-weight: 900; cursor: pointer; }.celebration-card > button b { color: var(--coral); font-size: 20px; }
+.celebration-rings { position: absolute; z-index: 0; left: 50%; top: 112px; width: 155px; height: 155px; border: 3px solid rgba(255,107,87,.3); border-radius: 50%; transform: translate(-50%,-50%); animation: celebration-ring 1.5s ease-out infinite; }
+.celebration-confetti { position: absolute; inset: 0; z-index: 1; pointer-events: none; }.celebration-confetti i { --confetti-x: 50%; --confetti-delay: 0s; --confetti-drift: 30px; position: absolute; left: var(--confetti-x); top: -18px; width: 8px; height: 17px; background: var(--coral); opacity: 0; animation: confetti-fall 2.15s var(--confetti-delay) ease-in infinite; }.celebration-confetti i:nth-child(3n) { background: var(--sage); border-radius: 50%; }.celebration-confetti i:nth-child(3n + 2) { background: #ffbf4a; transform: rotate(45deg); }
+.celebration-backdrop.milestone { background: radial-gradient(circle at 50% 38%, rgba(255,190,64,.4), transparent 38%), radial-gradient(circle at 20% 20%, rgba(255,107,87,.22), transparent 25%), rgba(7,12,24,.94); }.celebration-backdrop.milestone .celebration-card { box-shadow: 0 0 0 5px rgba(255,191,74,.6), 0 45px 130px rgba(0,0,0,.62); animation: celebration-milestone .75s cubic-bezier(.18,.9,.22,1.25) both; }.celebration-backdrop.milestone .celebration-rings { border-color: rgba(255,191,74,.65); box-shadow: 0 0 34px rgba(255,191,74,.42); }.celebration-backdrop.milestone .celebration-flame { font-size: 58px; }.celebration-backdrop.milestone .celebration-confetti i { animation-duration: 1.55s; }
+@keyframes celebration-pop { from { opacity: 0; transform: translateY(35px) scale(.82); } 70% { transform: translateY(-4px) scale(1.025); } }
+@keyframes celebration-milestone { from { opacity: 0; transform: rotate(-2deg) scale(.7); } 60% { transform: rotate(1deg) scale(1.045); } }
+@keyframes celebration-float { 50% { transform: translateY(-9px) rotate(-1deg); } }
+@keyframes celebration-flame { to { transform: translateY(-5px) scale(1.12) rotate(4deg); } }
+@keyframes celebration-ring { from { opacity: .8; transform: translate(-50%,-50%) scale(.55); } to { opacity: 0; transform: translate(-50%,-50%) scale(1.55); } }
+@keyframes confetti-fall { 0% { opacity: 0; transform: translate3d(0,-15px,0) rotate(0deg); } 12% { opacity: 1; } 100% { opacity: 0; transform: translate3d(var(--confetti-drift),560px,0) rotate(620deg); } }
+
 @media (max-width: 800px) {
   .content, .topbar { width: min(100% - 28px, 680px); }
   .topbar { height: 76px; }
@@ -392,4 +414,5 @@ body { font-size: 17px; line-height: 1.65; letter-spacing: -.015em; }
   .body-composition { padding: 24px 18px; }.body-form { grid-template-columns: 1fr; }.body-form label, .body-form > button, .bmi-preview { grid-column: 1; }.body-head, .body-row { grid-template-columns: 1.15fr repeat(4, .88fr); font-size: 10px; }.body-head { font-size: 9px; }
   .bottom-nav { width: calc(100% - 20px); bottom: 10px; }.bottom-nav button { gap: 4px; }.bottom-nav b { font-size: 11px; }.nav-icon { font-size: 12px; }
   .food-page-badge { display: none; }.food-messages { padding: 15px; max-height: none; }.food-answer { padding: 17px 14px; }.food-answer-top { grid-template-columns: 1fr; }.calorie-range { text-align: left; }.tf-advice { grid-template-columns: 1fr; }.food-sidebar { grid-template-columns: 1fr; }.food-source-note { grid-column: 1; }.food-input { padding: 14px; }
+  .celebration-backdrop { padding: 12px; }.celebration-card { padding: 28px 20px 25px; }.celebration-hero { width: 130px; height: 130px; }.celebration-flame { font-size: 38px; }.celebration-card blockquote { margin-block: 18px; font-size: 15px; }.celebration-checks { margin-bottom: 16px; }
 }

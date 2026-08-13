@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useMemo, useState } from "react";
 import { loadAccount, loginAccount, logoutAccount, saveAccount } from "./supabase-api";
 
 type Tab = "today" | "workout" | "records" | "food";
@@ -110,6 +110,21 @@ const DAILY = [
   { image: "/motivation-02.png", quote: "힘든 날의 작은 행동이 쉬운 날의 큰 행동보다 값지다.", cue: "3분만 시작하면 몸은 다음 동작을 기억해요." },
   { image: "/motivation-03.png", quote: "몸은 하루에 바뀌지 않지만, 방향은 하루에 바뀐다.", cue: "오늘 한 끼의 방향만 바로잡아도 충분해요." },
   { image: "/motivation-01.png", quote: "계속하는 사람이 결국 원하는 사람이 된다.", cue: "이번 주의 마지막 점 하나를 채워보세요." },
+];
+
+const STREAK_CELEBRATION_MESSAGES = [
+  "오늘의 선택이 내일의 자신감을 만들었습니다.",
+  "의지가 흔들려도, 쌓아온 습관은 당신을 앞으로 데려갑니다.",
+  "완벽해서가 아니라 계속했기 때문에 강해지고 있습니다.",
+  "오늘 지킨 약속 하나가 목표에 한 걸음 더 가까워지게 했습니다.",
+  "변화는 조용히 쌓이다가 어느 날 분명하게 보입니다.",
+  "포기하지 않은 오늘이 가장 강한 운동이었습니다.",
+  "어제보다 나은 한 번의 반복, 그걸로 충분합니다.",
+  "꾸준함은 재능을 이깁니다. 오늘도 그 증거를 만들었습니다.",
+  "몸은 당신이 반복한 방향을 기억하고 있습니다.",
+  "힘든 날에도 이어낸 기록이 진짜 자신감을 만듭니다.",
+  "지금의 속도면 충분합니다. 중요한 건 멈추지 않는 것입니다.",
+  "스스로와의 약속을 지킨 오늘을 오래 기억하세요.",
 ];
 
 const STORAGE_KEY = "pace50-state-v5";
@@ -238,6 +253,8 @@ export default function Home() {
   const [profileSetupOpen, setProfileSetupOpen] = useState(false);
   const [profileForm, setProfileForm] = useState({ weight: "", height: "" });
   const [profileError, setProfileError] = useState("");
+  const [celebratedDates, setCelebratedDates] = useState<string[]>([]);
+  const [celebrationOpen, setCelebrationOpen] = useState(false);
 
   const today = accessDate;
   const availableEnd = today < PLAN_START ? PLAN_START : today > PLAN_TARGET ? PLAN_TARGET : today;
@@ -274,6 +291,7 @@ export default function Home() {
         setProfileSetupCompleted(setupComplete);
         setProfileSetupVersion(setupComplete ? 1 : 0);
         setProfileSetupOpen(!setupComplete);
+        setCelebratedDates(parsed.celebratedDates ?? []);
   }
 
   useEffect(() => {
@@ -315,11 +333,11 @@ export default function Home() {
   useEffect(() => {
     if (!hydrated) return;
     if (!session) return;
-    const state = { weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats, heightCm, profileSetupCompleted, profileSetupVersion };
+    const state = { weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats, heightCm, profileSetupCompleted, profileSetupVersion, celebratedDates };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     const timer = window.setTimeout(() => saveAccount(session.token, state).catch(() => undefined), 500);
     return () => window.clearTimeout(timer);
-  }, [weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats, heightCm, profileSetupCompleted, profileSetupVersion, hydrated, session]);
+  }, [weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats, heightCm, profileSetupCompleted, profileSetupVersion, celebratedDates, hydrated, session]);
 
   const stageIndex = stageForDay(day);
   const availableWeights = weights.filter((entry) => entry.day <= accessDay);
@@ -378,6 +396,15 @@ export default function Home() {
     }
     return count;
   }, [completedDates, today]);
+  const celebrationMilestone = [3, 7, 14, 30, 50].includes(completionStreak);
+  const celebrationMessage = STREAK_CELEBRATION_MESSAGES[(planDayForDate(today) + completionStreak) % STREAK_CELEBRATION_MESSAGES.length];
+
+  useEffect(() => {
+    if (!hydrated || !session || !todayComplete || completionStreak < 1 || celebratedDates.includes(today)) return;
+    if (profileSetupOpen || dailyOpen || modal || celebrationOpen) return;
+    setCelebratedDates((dates) => [...new Set([...dates, today])]);
+    setCelebrationOpen(true);
+  }, [celebratedDates, celebrationOpen, completionStreak, dailyOpen, hydrated, modal, profileSetupOpen, session, today, todayComplete]);
 
   const progressRows = Object.keys(DEFAULT_LOADS).map((name) => {
     const history = loadHistory.filter((item) => item.name === name).sort((a, b) => a.day - b.day);
@@ -562,7 +589,7 @@ export default function Home() {
     if (session) await logoutAccount(session.token).catch(() => undefined);
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(STORAGE_KEY);
-    setSession(null); setWeights([]); setWeightInput(""); setChecks({}); setLoadHistory([]); setLoadInputs({}); setActiveDates([]); setBodyStats([]); setBodyForm({ weight: "", muscle: "", bodyFat: "" }); setFoodChats([]); setHeightCm(null); setProfileSetupCompleted(true); setProfileSetupVersion(0); setProfileSetupOpen(false); setProfileForm({ weight: "", height: "" }); setDailyOpen(false); setAuthForm({ name: "", pin: "" });
+    setSession(null); setWeights([]); setWeightInput(""); setChecks({}); setLoadHistory([]); setLoadInputs({}); setActiveDates([]); setBodyStats([]); setBodyForm({ weight: "", muscle: "", bodyFat: "" }); setFoodChats([]); setHeightCm(null); setProfileSetupCompleted(true); setProfileSetupVersion(0); setProfileSetupOpen(false); setProfileForm({ weight: "", height: "" }); setDailyOpen(false); setCelebratedDates([]); setCelebrationOpen(false); setAuthForm({ name: "", pin: "" });
   }
 
   if (!authReady) return <main className="auth-loading"><div className="auth-loader" /><span>자기관리 공간을 준비하고 있어요</span></main>;
@@ -701,6 +728,8 @@ export default function Home() {
       {profileSetupOpen && <div className="profile-onboarding-backdrop"><section className="profile-onboarding" role="dialog" aria-modal="true" aria-labelledby="profile-setup-title"><div className="profile-onboarding-mark">01</div><p>FIRST BODY CHECK</p><h2 id="profile-setup-title">첫 키와 몸무게를<br />알려주세요.</h2><span>BMI와 체중 변화는 여기서 입력한 값을 기준으로 계산합니다. 계정마다 한 번만 나타나요.</span><form className="profile-setup-form" onSubmit={(event) => { event.preventDefault(); finishProfileSetup(); }}><div className="profile-setup-fields"><label><span>첫 몸무게</span><div><input autoFocus inputMode="decimal" placeholder="예: 70.5" value={profileForm.weight} onChange={(event) => setProfileForm((value) => ({ ...value, weight: event.target.value }))} /><b>kg</b></div></label><label><span>키</span><div><input inputMode="decimal" placeholder="예: 172" value={profileForm.height} onChange={(event) => setProfileForm((value) => ({ ...value, height: event.target.value }))} /><b>cm</b></div></label></div>{profileError && <p className="profile-error" role="alert">{profileError}</p>}<div className="profile-setup-actions"><button type="submit">저장하고 시작하기 <b>→</b></button><button type="button" className="profile-skip" onClick={() => finishProfileSetup(true)}>지금은 건너뛰기</button></div></form><small>건너뛰어도 체중과 키는 나중에 기록할 수 있어요.</small></section></div>}
 
       {dailyOpen && !profileSetupOpen && <div className="daily-backdrop"><section className="daily-card" style={{ backgroundImage: `linear-gradient(90deg, rgba(10,17,31,.94), rgba(10,17,31,.18)), url(${daily.image})` }} role="dialog" aria-modal="true" aria-labelledby="daily-title"><div className="daily-top"><div className="daily-streak">🔥 {completionStreak}일 연속 · {dDay > 0 ? `D-${dDay}` : dDay === 0 ? "D-DAY" : `D+${Math.abs(dDay)}`}</div><div className={`daily-mascot ${mascot.state}`} role="img" aria-label={`${mascot.label} 호랑이 코치`} /></div><div className="daily-content"><p>DAY {accessDay} · {mascot.label}의 한 문장</p><h2 id="daily-title">{daily.quote}</h2><span>{todayComplete ? "오늘 체중과 필수 운동 완료. 불꽃을 지켰어요!" : mascot.message}</span><button onClick={closeDaily}>오늘도 이어가기 <b>→</b></button></div></section></div>}
+
+      {celebrationOpen && <div className={`celebration-backdrop${celebrationMilestone ? " milestone" : ""}`}><section className="celebration-card" role="dialog" aria-modal="true" aria-labelledby="celebration-title"><div className="celebration-confetti" aria-hidden="true">{Array.from({ length: celebrationMilestone ? 32 : 18 }, (_, index) => <i key={index} style={{ "--confetti-x": `${(index * 37 + 9) % 100}%`, "--confetti-delay": `${(index % 8) * -.09}s`, "--confetti-drift": `${(index % 2 ? 1 : -1) * (22 + index % 5 * 8)}px` } as CSSProperties} />)}</div><div className="celebration-rings" aria-hidden="true" /><div className="celebration-hero" aria-hidden="true"><div className="celebration-mascot" /><div className="celebration-flame">🔥</div></div><p>{celebrationMilestone ? "MILESTONE UNLOCKED" : "STREAK EXTENDED"}</p><h2 id="celebration-title"><strong>{completionStreak}</strong>일 연속 달성!</h2><blockquote>“{celebrationMessage}”</blockquote><div className="celebration-checks"><span>✓ 아침 체중</span><span>✓ 필수 운동</span>{celebrationMilestone && <b>특별 기록</b>}</div><button onClick={() => setCelebrationOpen(false)}>내일도 이어가기 <b>→</b></button></section></div>}
 
       {modal && <div className="modal-backdrop" role="presentation" onMouseDown={() => setModal(null)}><section className={`coach-modal modal-${modal.persona.toLowerCase()}`} role="dialog" aria-modal="true" aria-labelledby="coach-title" onMouseDown={(e) => e.stopPropagation()}><button className="modal-close" onClick={() => setModal(null)} aria-label="코칭 닫기">×</button><div className="modal-persona">{modal.persona}</div><p>{modal.eyebrow}</p><h2 id="coach-title">{modal.title}</h2><blockquote>{modal.body}</blockquote><button className="modal-confirm" onClick={() => setModal(null)}>좋아요, 그렇게 할게요</button></section></div>}
     </main>
