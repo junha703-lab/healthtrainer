@@ -183,6 +183,24 @@ function clampPlanDate(date: string, max: string) {
   return date;
 }
 
+type RoutineMode = "normal" | "pain";
+
+function requiredWorkoutNames(date: string, mode: RoutineMode) {
+  if (mode === "pain") return [...ROUTINES.pain.map(({ name }) => name), "좌식 사이클"];
+  const targetDay = planDayForDate(date);
+  const targetCycleDay = ((targetDay - 1) % 6) + 1;
+  const targetKind = targetCycleDay === 1 || targetCycleDay === 4 ? "push" : targetCycleDay === 2 || targetCycleDay === 5 ? "pull" : "legs";
+  const cardioNames = targetKind === "legs" ? ["하체 날 런닝머신 걷기"] : ["천국의 계단", "런닝머신 걷기"];
+  return [...ROUTINES[targetKind].map(({ name }) => name), ...cardioNames];
+}
+
+function isWorkoutComplete(date: string, checks: Record<string, boolean>) {
+  const targetDay = planDayForDate(date);
+  return (["normal", "pain"] as RoutineMode[]).some((mode) =>
+    requiredWorkoutNames(date, mode).every((name) => checks[`${date}-${mode}-${name}`] || checks[`${targetDay}-${mode}-${name}`]),
+  );
+}
+
 export default function Home() {
   const [tab, setTab] = useState<Tab>("today");
   const [accessDate, setAccessDate] = useState(dateKey());
@@ -231,7 +249,10 @@ export default function Home() {
   const viewingToday = selectedDate === today;
   const daily = DAILY[(new Date().getDay() + day) % DAILY.length];
   const recordedWeightDates = useMemo(() => new Set(weights.map((entry) => dateFromPlanDay(entry.day))), [weights]);
-  const todayComplete = recordedWeightDates.has(today);
+  const completedDates = useMemo(() => new Set([...recordedWeightDates].filter((date) => isWorkoutComplete(date, checks))), [recordedWeightDates, checks]);
+  const todayWeightComplete = recordedWeightDates.has(today);
+  const todayWorkoutComplete = isWorkoutComplete(today, checks);
+  const todayComplete = todayWeightComplete && todayWorkoutComplete;
 
   function hydrateState(parsed: Record<string, any>) {
         const loadedWeights: WeightEntry[] = parsed.weights?.length ? parsed.weights : INITIAL_WEIGHTS;
@@ -345,18 +366,18 @@ export default function Home() {
     const date = new Date(monday);
     date.setDate(monday.getDate() + index);
     const key = dateKey(date);
-    return { key, date: `${date.getMonth() + 1}.${date.getDate()}`, label: date.toLocaleDateString("ko-KR", { weekday: "short" }).replace("요일", ""), done: recordedWeightDates.has(key) };
+    return { key, date: `${date.getMonth() + 1}.${date.getDate()}`, label: date.toLocaleDateString("ko-KR", { weekday: "short" }).replace("요일", ""), done: completedDates.has(key) };
   });
-  const weightStreak = useMemo(() => {
+  const completionStreak = useMemo(() => {
     let count = 0;
     const cursor = new Date(`${today}T12:00:00`);
-    if (!recordedWeightDates.has(today)) cursor.setDate(cursor.getDate() - 1);
-    while (recordedWeightDates.has(dateKey(cursor))) {
+    if (!completedDates.has(today)) cursor.setDate(cursor.getDate() - 1);
+    while (completedDates.has(dateKey(cursor))) {
       count += 1;
       cursor.setDate(cursor.getDate() - 1);
     }
     return count;
-  }, [recordedWeightDates, today]);
+  }, [completedDates, today]);
 
   const progressRows = Object.keys(DEFAULT_LOADS).map((name) => {
     const history = loadHistory.filter((item) => item.name === name).sort((a, b) => a.day - b.day);
@@ -364,12 +385,12 @@ export default function Home() {
   }).filter((item) => item.count > 0);
 
   const mascot = hour < 12
-    ? { state: "morning", label: "오전 코치", message: "좋은 아침! 체중만 먼저 기록하면 오늘 불꽃은 금방 지킬 수 있어요." }
+    ? { state: "morning", label: "오전 코치", message: "좋은 아침! 아침 체중부터 기록하고 필수 운동까지 이어가요." }
     : hour < 19
       ? { state: "afternoon", label: "오후 코치", message: "아직 충분해요. 운동 한 세트만 시작하면 흐름이 다시 붙어요!" }
       : hour < 22
-        ? { state: "night", label: "저녁 코치", message: "오늘이 얼마 안 남았어요. 딱 하나만 체크하고 편하게 쉬어요." }
-        : { state: "night urgent", label: "자정 임박", message: `제발… 자정 전에 체중만 기록해 주세요. 연속 ${weightStreak}일을 잃을 순 없어요!` };
+        ? { state: "night", label: "저녁 코치", message: "오늘이 얼마 안 남았어요. 남은 필수 운동까지 체크하고 편하게 쉬어요." }
+        : { state: "night urgent", label: "자정 임박", message: `제발… 자정 전에 체중과 필수 운동을 모두 끝내 주세요. 연속 ${completionStreak}일을 잃을 순 없어요!` };
   const guide = selectedGuide ? EXERCISE_GUIDES[selectedGuide] : null;
   const recordChart = availableWeights.slice(-14);
   const recordMin = Math.min(...recordChart.map((entry) => entry.weight), 68) - 0.3;
@@ -555,7 +576,7 @@ export default function Home() {
       <header className="topbar">
         <a className="brand" href="#top" aria-label="50일 페이스메이커 홈"><span className="brand-mark">50</span><span>PACE<br />MAKER</span></a>
         <div className="header-actions">
-          <button className={todayComplete ? "streak-chip safe" : "streak-chip"} onClick={() => document.getElementById("streak")?.scrollIntoView()}><span>🔥</span><b>{weightStreak}일 연속</b></button>
+          <button className={todayComplete ? "streak-chip safe" : "streak-chip"} onClick={() => document.getElementById("streak")?.scrollIntoView()}><span>🔥</span><b>{completionStreak}일 연속</b></button>
           <label className="travel-switch"><input type="checkbox" checked={travelMode} onChange={(event) => setTravelMode(event.target.checked)} /><span aria-hidden="true" />여행</label>
           <button className="avatar" onClick={signOut} aria-label={`${session.name} 로그아웃`} title="로그아웃">{session.name.slice(0, 1)}</button>
         </div>
@@ -579,11 +600,11 @@ export default function Home() {
             <div className={`mascot-art ${mascot.state}`} role="img" aria-label={`${mascot.label} 호랑이 헬스 코치`} />
             <div className="streak-copy">
               <p>🔥 {mascot.label} · 연속 기록</p>
-              <h2>{todayComplete ? `오늘도 지켰어요. ${weightStreak}일 연속!` : `오늘 체중을 기록해야 연속 ${weightStreak}일을 지켜요.`}</h2>
-              <span className="mascot-message">“{todayComplete ? "역시 해낼 줄 알았어요. 내일도 이 불꽃 그대로 만나요!" : mascot.message}”</span>
+              <h2>{todayComplete ? `체중과 운동 완료. ${completionStreak}일 연속!` : !todayWeightComplete ? `아침 체중과 필수 운동을 모두 완료해야 연속 ${completionStreak}일을 지켜요.` : `체중 기록 완료. 이제 필수 운동까지 체크해 주세요.`}</h2>
+              <span className="mascot-message">“{todayComplete ? "오늘의 두 가지 약속을 모두 지켰어요!" : mascot.message}”</span>
             </div>
             <div className="week-dots">{weekly.map((item) => <div key={item.key} className={item.done ? "done" : item.key === today ? "today" : ""}><span className="week-date">{item.date}</span><i>{item.done ? "✓" : ""}</i><span>{item.label}</span></div>)}</div>
-            <div className="streak-side"><span>🧊 보호권 {freezePasses}개</span><button onClick={() => { setTab("today"); document.getElementById("weight")?.focus(); }}>{todayComplete ? "연속 기록 안전" : "체중 기록으로 지키기"}</button></div>
+            <div className="streak-side"><span>🧊 보호권 {freezePasses}개</span><button onClick={() => { if (!todayWeightComplete) { setTab("today"); setSelectedDate(clampPlanDate(today, availableEnd)); window.setTimeout(() => document.getElementById("weight")?.focus(), 0); } else if (!todayWorkoutComplete) { setSelectedDate(clampPlanDate(today, availableEnd)); setTab("workout"); } }}>{todayComplete ? "연속 기록 안전" : !todayWeightComplete ? "아침 체중 기록하기" : "필수 운동 마치기"}</button></div>
           </section>
 
           <section className="milestone-strip">{MILESTONES.map((m, index) => <article className={index === stageIndex ? "milestone active" : index < stageIndex ? "milestone done" : "milestone"} key={m.name}><div className="milestone-num">0{index + 1}</div><div><span>{m.range}</span><strong>{m.name}</strong><small>{m.target}</small></div>{index === stageIndex && <i>NOW</i>}</article>)}</section>
@@ -624,7 +645,7 @@ export default function Home() {
           <div className="page-title-row"><div><p className="kicker">MY 50-DAY LOG</p><h1>쌓인 기록</h1><p>체중의 방향과 기구 중량의 성장을 함께 확인하세요.</p></div><div className="record-summary"><span>누적 변화</span><strong>{change !== null ? change.toFixed(1) : "—"}{change !== null && <small>kg</small>}</strong></div></div>
           <form className="past-record-card card" onSubmit={savePastRecord}><div><p className="section-label">BACKFILL RECORD</p><h2>지난 기록 입력</h2><span>8월 10일부터 접속일 사이의 날짜를 골라 빠진 기록을 채우세요.</span></div><label><span>기록 날짜</span><input type="date" min={PLAN_START} max={availableEnd} value={pastForm.date} onChange={(e) => setPastForm((value) => ({ ...value, date: e.target.value }))} /></label><label><span>체중 · 필수</span><div><input inputMode="decimal" placeholder="예: 73.2" value={pastForm.weight} onChange={(e) => setPastForm((value) => ({ ...value, weight: e.target.value }))} /><b>kg</b></div></label><label><span>근육량 · 선택</span><div><input inputMode="decimal" placeholder="예: 30.0" value={pastForm.muscle} onChange={(e) => setPastForm((value) => ({ ...value, muscle: e.target.value }))} /><b>kg</b></div></label><label><span>체지방률 · 선택</span><div><input inputMode="decimal" placeholder="예: 22.0" value={pastForm.bodyFat} onChange={(e) => setPastForm((value) => ({ ...value, bodyFat: e.target.value }))} /><b>%</b></div></label><button type="submit">지난 기록 저장 <span>→</span></button></form>
           <div className="record-grid"><article className="record-table card"><div className="card-heading compact"><div><p className="section-label">WEIGHT LOG</p><h2>체중 기록</h2></div><span className="stage-pill">{weights.length}회</span></div><div className="table-head"><span>날짜 / 일차</span><span>체중</span><span>시작 대비</span></div>{weights.length === 0 ? <div className="body-empty">첫 체중을 기록하면 여기에 쌓입니다.</div> : [...weights].reverse().map((entry) => <div className="table-row" key={entry.day}><span>{dateFromPlanDay(entry.day).slice(5).replace("-", ".")} · D{entry.day}</span><strong>{entry.weight.toFixed(1)} kg</strong><em>{startingWeight !== null ? `${(entry.weight - startingWeight).toFixed(1)} kg` : "—"}</em></div>)}</article>
-            <article className="rules-card card"><p className="section-label">STREAK SYSTEM</p><h2>연속성을 만드는 장치</h2><ol><li><span>🔥</span><div><b>{weightStreak}일 연속 체중 기록</b><p>아침 체중을 저장한 날만 불꽃이 이어집니다.</p></div></li><li><span>🧊</span><div><b>보호권 {freezePasses}개</b><p>딱 하루 놓치면 자동으로 연속 기록을 보호합니다.</p></div></li><li><span>✓</span><div><b>판정 기준은 명확하게</b><p>운동 체크와 별개로 체중 기록 여부만 표시합니다.</p></div></li></ol></article>
+            <article className="rules-card card"><p className="section-label">STREAK SYSTEM</p><h2>연속성을 만드는 장치</h2><ol><li><span>🔥</span><div><b>{completionStreak}일 연속 완주</b><p>아침 체중과 그날의 필수 운동을 모두 완료해야 불꽃이 이어집니다.</p></div></li><li><span>🧊</span><div><b>보호권 {freezePasses}개</b><p>딱 하루 놓치면 자동으로 연속 기록을 보호합니다.</p></div></li><li><span>✓</span><div><b>선택 운동은 자유롭게</b><p>선택 운동은 연속 기록 판정에서 제외합니다.</p></div></li></ol></article>
             <article className="record-chart-card card"><div className="card-heading compact"><div><p className="section-label">WEIGHT GRAPH</p><h2>최근 체중 추세</h2></div><span className="stage-pill">최근 {recordChart.length}회</span></div><div className="record-chart-summary"><div><span>현재</span><strong>{currentWeight !== null ? `${currentWeight.toFixed(1)}kg` : "—"}</strong></div><div><span>7회 평균</span><strong>{sevenDayAverage !== null ? `${sevenDayAverage.toFixed(1)}kg` : "—"}</strong></div><div><span>목표 구간</span><strong>68—70kg</strong></div></div><div className={recordChart.length ? "record-chart" : "record-chart empty-record-chart"} aria-label="최근 체중 변화 그래프"><div className="target-band"><span>목표 68—70kg</span></div>{recordChart.length === 0 ? <div className="chart-empty-copy"><b>기록을 기다리고 있어요.</b><span>체중을 입력하면 선 그래프로 보여드려요.</span></div> : recordChart.map((entry, index) => { const bottom = ((entry.weight - recordMin) / (recordMax - recordMin)) * 100; const next = recordChart[index + 1]; const nextBottom = next ? ((next.weight - recordMin) / (recordMax - recordMin)) * 100 : bottom; const dx = 100 / Math.max(1, recordChart.length - 1); const dy = nextBottom - bottom; return <div className="record-point-wrap" key={entry.day} style={{ left: `${index * dx}%`, bottom: `${bottom}%` }}><i className="record-point" /><b>{entry.weight.toFixed(1)}</b><small>D{entry.day}</small>{next && <span className="record-line" style={{ width: `calc(${dx} * 1%)`, transform: `rotate(${-Math.atan2(dy, dx) * 180 / Math.PI}deg)`, transformOrigin: "left center" }} />}</div>; })}</div><p className="chart-footnote">하루 수치보다 같은 조건에서 쌓인 흐름을 보세요.</p></article>
             <article className="load-progress card"><div className="card-heading compact"><div><p className="section-label">STRENGTH PROGRESS</p><h2>들어 올린 무게의 성장</h2></div><span className="stage-pill">{loadHistory.length}세트 기록</span></div>{progressRows.length === 0 ? <div className="empty-progress"><strong>첫 중량을 기다리고 있어요.</strong><span>운동 탭에서 중량을 맞춘 뒤 완료 체크하면 여기에 성장 기록이 쌓입니다.</span></div> : <div className="load-table"><div className="load-head"><span>운동</span><span>첫 기록</span><span>최근</span><span>증가</span></div>{progressRows.map((row) => <div className="load-row" key={row.name}><b>{row.name}</b><span>{row.first}kg</span><strong>{row.latest}kg</strong><em>+{((row.latest ?? 0) - (row.first ?? 0)).toFixed(0)}kg</em></div>)}</div>}</article>
             <article className="body-composition card">
@@ -679,7 +700,7 @@ export default function Home() {
 
       {profileSetupOpen && <div className="profile-onboarding-backdrop"><section className="profile-onboarding" role="dialog" aria-modal="true" aria-labelledby="profile-setup-title"><div className="profile-onboarding-mark">01</div><p>FIRST BODY CHECK</p><h2 id="profile-setup-title">첫 키와 몸무게를<br />알려주세요.</h2><span>BMI와 체중 변화는 여기서 입력한 값을 기준으로 계산합니다. 계정마다 한 번만 나타나요.</span><form className="profile-setup-form" onSubmit={(event) => { event.preventDefault(); finishProfileSetup(); }}><div className="profile-setup-fields"><label><span>첫 몸무게</span><div><input autoFocus inputMode="decimal" placeholder="예: 70.5" value={profileForm.weight} onChange={(event) => setProfileForm((value) => ({ ...value, weight: event.target.value }))} /><b>kg</b></div></label><label><span>키</span><div><input inputMode="decimal" placeholder="예: 172" value={profileForm.height} onChange={(event) => setProfileForm((value) => ({ ...value, height: event.target.value }))} /><b>cm</b></div></label></div>{profileError && <p className="profile-error" role="alert">{profileError}</p>}<div className="profile-setup-actions"><button type="submit">저장하고 시작하기 <b>→</b></button><button type="button" className="profile-skip" onClick={() => finishProfileSetup(true)}>지금은 건너뛰기</button></div></form><small>건너뛰어도 체중과 키는 나중에 기록할 수 있어요.</small></section></div>}
 
-      {dailyOpen && !profileSetupOpen && <div className="daily-backdrop"><section className="daily-card" style={{ backgroundImage: `linear-gradient(90deg, rgba(10,17,31,.94), rgba(10,17,31,.18)), url(${daily.image})` }} role="dialog" aria-modal="true" aria-labelledby="daily-title"><div className="daily-top"><div className="daily-streak">🔥 {weightStreak}일 연속 · {dDay > 0 ? `D-${dDay}` : dDay === 0 ? "D-DAY" : `D+${Math.abs(dDay)}`}</div><div className={`daily-mascot ${mascot.state}`} role="img" aria-label={`${mascot.label} 호랑이 코치`} /></div><div className="daily-content"><p>DAY {accessDay} · {mascot.label}의 한 문장</p><h2 id="daily-title">{daily.quote}</h2><span>{todayComplete ? "오늘 체중 기록 완료. 불꽃을 지켰어요!" : mascot.message}</span><button onClick={closeDaily}>오늘도 이어가기 <b>→</b></button></div></section></div>}
+      {dailyOpen && !profileSetupOpen && <div className="daily-backdrop"><section className="daily-card" style={{ backgroundImage: `linear-gradient(90deg, rgba(10,17,31,.94), rgba(10,17,31,.18)), url(${daily.image})` }} role="dialog" aria-modal="true" aria-labelledby="daily-title"><div className="daily-top"><div className="daily-streak">🔥 {completionStreak}일 연속 · {dDay > 0 ? `D-${dDay}` : dDay === 0 ? "D-DAY" : `D+${Math.abs(dDay)}`}</div><div className={`daily-mascot ${mascot.state}`} role="img" aria-label={`${mascot.label} 호랑이 코치`} /></div><div className="daily-content"><p>DAY {accessDay} · {mascot.label}의 한 문장</p><h2 id="daily-title">{daily.quote}</h2><span>{todayComplete ? "오늘 체중과 필수 운동 완료. 불꽃을 지켰어요!" : mascot.message}</span><button onClick={closeDaily}>오늘도 이어가기 <b>→</b></button></div></section></div>}
 
       {modal && <div className="modal-backdrop" role="presentation" onMouseDown={() => setModal(null)}><section className={`coach-modal modal-${modal.persona.toLowerCase()}`} role="dialog" aria-modal="true" aria-labelledby="coach-title" onMouseDown={(e) => e.stopPropagation()}><button className="modal-close" onClick={() => setModal(null)} aria-label="코칭 닫기">×</button><div className="modal-persona">{modal.persona}</div><p>{modal.eyebrow}</p><h2 id="coach-title">{modal.title}</h2><blockquote>{modal.body}</blockquote><button className="modal-confirm" onClick={() => setModal(null)}>좋아요, 그렇게 할게요</button></section></div>}
     </main>
