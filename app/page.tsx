@@ -9,7 +9,7 @@ type WeightEntry = { day: number; weight: number };
 type LoadEntry = { day: number; name: string; kg: number };
 type Interval = { time: string; target: string };
 type Exercise = { name: string; detail: string; weighted?: boolean; intervals?: Interval[] };
-type BodyStat = { date: string; day: number; weight: number; muscle: number; bodyFat: number; bmi: number };
+type BodyStat = { date: string; day: number; weight: number; muscle: number; bodyFat: number; bmi: number | null };
 type ExerciseGuide = { image: string; motion: string; focus: string; steps: string[]; caution: string; program?: Interval[] };
 type FoodAdvice = { name: string; verdict: string; tone: "good" | "careful" | "limit" | "unknown"; calories: string; serving: string; fact: string; encouragement: string; actions: string[] };
 type FoodChat = { id: number; query: string; advice: FoodAdvice };
@@ -188,7 +188,7 @@ export default function Home() {
   const [accessDate, setAccessDate] = useState(dateKey());
   const [selectedDate, setSelectedDate] = useState(dateKey());
   const [weights, setWeights] = useState<WeightEntry[]>(INITIAL_WEIGHTS);
-  const [weightInput, setWeightInput] = useState("71.8");
+  const [weightInput, setWeightInput] = useState("");
   const [travelMode, setTravelMode] = useState(false);
   const [painMode, setPainMode] = useState(false);
   const [checks, setChecks] = useState<Record<string, boolean>>({});
@@ -204,7 +204,7 @@ export default function Home() {
   const [guideView, setGuideView] = useState<"photo" | "motion">("photo");
   const [hour, setHour] = useState(9);
   const [bodyStats, setBodyStats] = useState<BodyStat[]>([]);
-  const [bodyForm, setBodyForm] = useState({ weight: "71.8", muscle: "30.0", bodyFat: "22.0" });
+  const [bodyForm, setBodyForm] = useState({ weight: "", muscle: "", bodyFat: "" });
   const [pastForm, setPastForm] = useState({ date: dateKey(), weight: "", muscle: "", bodyFat: "" });
   const [foodQuery, setFoodQuery] = useState("");
   const [foodChats, setFoodChats] = useState<FoodChat[]>([]);
@@ -214,6 +214,11 @@ export default function Home() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  const [heightCm, setHeightCm] = useState<number | null>(null);
+  const [profileSetupCompleted, setProfileSetupCompleted] = useState(true);
+  const [profileSetupOpen, setProfileSetupOpen] = useState(false);
+  const [profileForm, setProfileForm] = useState({ weight: "", height: "" });
+  const [profileError, setProfileError] = useState("");
 
   const today = accessDate;
   const availableEnd = today < PLAN_START ? PLAN_START : today > PLAN_TARGET ? PLAN_TARGET : today;
@@ -240,6 +245,8 @@ export default function Home() {
         setActiveDates(parsed.activeDates ?? []);
         setBodyStats((parsed.bodyStats ?? []).filter((entry: BodyStat) => entry.date >= PLAN_START && entry.date <= today).map((entry: BodyStat) => ({ ...entry, day: planDayForDate(entry.date) })));
         setFoodChats(parsed.foodChats ?? []);
+        setHeightCm(Number(parsed.heightCm) >= 120 && Number(parsed.heightCm) <= 230 ? Number(parsed.heightCm) : null);
+        setProfileSetupCompleted(typeof parsed.profileSetupCompleted === "boolean" ? parsed.profileSetupCompleted : true);
   }
 
   useEffect(() => {
@@ -281,19 +288,20 @@ export default function Home() {
   useEffect(() => {
     if (!hydrated) return;
     if (!session) return;
-    const state = { weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats };
+    const state = { weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats, heightCm, profileSetupCompleted };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     const timer = window.setTimeout(() => saveAccount(session.token, state).catch(() => undefined), 500);
     return () => window.clearTimeout(timer);
-  }, [weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats, hydrated, session]);
+  }, [weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats, heightCm, profileSetupCompleted, hydrated, session]);
 
   const stageIndex = stageForDay(day);
   const availableWeights = weights.filter((entry) => entry.day <= accessDay);
   const selectedWeights = availableWeights.filter((entry) => entry.day <= day);
-  const currentWeight = selectedWeights.at(-1)?.weight ?? 74;
+  const startingWeight = weights.at(0)?.weight ?? null;
+  const currentWeight = selectedWeights.at(-1)?.weight ?? null;
   const recent = selectedWeights.slice(-7);
-  const sevenDayAverage = recent.reduce((sum, item) => sum + item.weight, 0) / recent.length;
-  const change = currentWeight - 74;
+  const sevenDayAverage = recent.length ? recent.reduce((sum, item) => sum + item.weight, 0) / recent.length : null;
+  const change = currentWeight !== null && startingWeight !== null ? currentWeight - startingWeight : null;
   const cycleDay = ((day - 1) % 6) + 1;
   const routineKind = cycleDay === 1 || cycleDay === 4 ? "push" : cycleDay === 2 || cycleDay === 5 ? "pull" : "legs";
   const routineLabel = routineKind === "push" ? "가슴 / 어깨" : routineKind === "pull" ? "등 / 코어" : "하체";
@@ -313,13 +321,14 @@ export default function Home() {
   const allItems = [...exercises, ...cardio];
   const completed = allItems.filter(({ name }) => checks[`${selectedDate}-${painMode ? "pain" : "normal"}-${name}`] || checks[`${day}-${painMode ? "pain" : "normal"}-${name}`]).length;
   const chartData = selectedWeights.slice(-7);
-  const chartMin = Math.min(...chartData.map((d) => d.weight)) - 0.2;
-  const chartMax = Math.max(...chartData.map((d) => d.weight)) + 0.2;
+  const chartMin = chartData.length ? Math.min(...chartData.map((d) => d.weight)) - 0.2 : 0;
+  const chartMax = chartData.length ? Math.max(...chartData.map((d) => d.weight)) + 0.2 : 1;
 
   const coach = useMemo(() => {
     if (travelMode) return { persona: "F" as Persona, line: "여행의 목표는 감량이 아니라 유지예요. 한 끼에 즐거움 하나면 충분해요." };
     if (stageIndex === 0) return { persona: "F" as Persona, line: "완벽한 식단보다 평소 양의 80%. 오늘도 오래 갈 수 있는 선택을 해요." };
-    if (stageIndex === 1) return { persona: "T" as Persona, line: `현재 7회 평균 ${sevenDayAverage.toFixed(1)}kg. 하루 숫자보다 추세가 정확합니다.` };
+    if (stageIndex === 1 && sevenDayAverage !== null) return { persona: "T" as Persona, line: `현재 7회 평균 ${sevenDayAverage.toFixed(1)}kg. 하루 숫자보다 추세가 정확합니다.` };
+    if (stageIndex === 1) return { persona: "T" as Persona, line: "첫 체중을 기록하면 7일 평균과 변화 추세를 정확하게 보여드려요." };
     if (stageIndex === 2) return { persona: "T" as Persona, line: "정체는 실패가 아니라 적응 신호입니다. 저녁 밥만 한두 숟갈 줄여보세요." };
     return { persona: "F" as Persona, line: "마지막까지 굶지 않기. 가볍게, 평소처럼, 끝까지 가면 됩니다." };
   }, [stageIndex, sevenDayAverage, travelMode]);
@@ -358,8 +367,9 @@ export default function Home() {
   const guide = selectedGuide ? EXERCISE_GUIDES[selectedGuide] : null;
   const recordChart = availableWeights.slice(-14);
   const recordMin = Math.min(...recordChart.map((entry) => entry.weight), 68) - 0.3;
-  const recordMax = Math.max(...recordChart.map((entry) => entry.weight), 74) + 0.3;
-  const bodyBmi = Number(bodyForm.weight) > 0 ? Number(bodyForm.weight) / (1.72 * 1.72) : 0;
+  const recordMax = Math.max(...recordChart.map((entry) => entry.weight), 70) + 0.3;
+  const heightMeters = heightCm ? heightCm / 100 : 0;
+  const bodyBmi = Number(bodyForm.weight) > 0 && heightMeters > 0 ? Number(bodyForm.weight) / (heightMeters * heightMeters) : null;
 
   function markDate(date: string) {
     if (activeDates.includes(date)) return;
@@ -369,6 +379,31 @@ export default function Home() {
   }
 
   function closeDaily() {
+    if (!profileSetupCompleted) {
+      setProfileSetupOpen(true);
+      return;
+    }
+    localStorage.setItem("pace50-inspiration-date", today);
+    setDailyOpen(false);
+  }
+
+  function finishProfileSetup(skipped = false) {
+    if (!skipped) {
+      const weight = Number(profileForm.weight);
+      const height = Number(profileForm.height);
+      if (!Number.isFinite(weight) || weight < 40 || weight > 150 || !Number.isFinite(height) || height < 120 || height > 230) {
+        setProfileError("체중은 40—150kg, 키는 120—230cm 사이로 입력해 주세요.");
+        return;
+      }
+      setHeightCm(height);
+      setWeightInput(weight.toFixed(1));
+      setBodyForm((value) => ({ ...value, weight: weight.toFixed(1) }));
+      setWeights((items) => [...items.filter((entry) => entry.day !== accessDay), { day: accessDay, weight }].sort((a, b) => a.day - b.day));
+      markDate(today);
+    }
+    setProfileSetupCompleted(true);
+    setProfileSetupOpen(false);
+    setProfileError("");
     localStorage.setItem("pace50-inspiration-date", today);
     setDailyOpen(false);
   }
@@ -427,10 +462,11 @@ export default function Home() {
       setModal({ persona: "T", eyebrow: "주간 측정 확인", title: "수치를 다시 확인해 주세요", body: "체중 40—150kg, 근육량 10—80kg, 체지방률 3—60% 범위로 입력해 주세요." });
       return;
     }
-    const entry: BodyStat = { date: selectedDate, day, weight, muscle, bodyFat, bmi: weight / (1.72 * 1.72) };
+    const bmi = heightMeters > 0 ? weight / (heightMeters * heightMeters) : null;
+    const entry: BodyStat = { date: selectedDate, day, weight, muscle, bodyFat, bmi };
     setBodyStats((items) => [...items.filter((item) => item.date !== selectedDate), entry].sort((a, b) => a.date.localeCompare(b.date)));
     markDate(selectedDate);
-    openCoach("주간 체성분 기록 완료", `BMI ${entry.bmi.toFixed(1)}, 근육량 ${muscle.toFixed(1)}kg, 체지방률 ${bodyFat.toFixed(1)}%를 저장했습니다. 주간 간격의 같은 조건 측정이 변화 확인에 유리합니다.`, "이번 주의 몸을 있는 그대로 기록했어요. 숫자는 평가가 아니라 다음 선택을 위한 지도예요.");
+    openCoach("주간 체성분 기록 완료", `${entry.bmi !== null ? `BMI ${entry.bmi.toFixed(1)}, ` : ""}근육량 ${muscle.toFixed(1)}kg, 체지방률 ${bodyFat.toFixed(1)}%를 저장했습니다. 주간 간격의 같은 조건 측정이 변화 확인에 유리합니다.`, "이번 주의 몸을 있는 그대로 기록했어요. 숫자는 평가가 아니라 다음 선택을 위한 지도예요.");
   }
 
   function savePastRecord(event: FormEvent) {
@@ -446,7 +482,8 @@ export default function Home() {
     }
     setWeights((items) => [...items.filter((entry) => entry.day !== recordDay), { day: recordDay, weight }].sort((a, b) => a.day - b.day));
     if (muscle >= 10 && muscle <= 80 && bodyFat >= 3 && bodyFat <= 60) {
-      const entry: BodyStat = { date, day: recordDay, weight, muscle, bodyFat, bmi: weight / (1.72 * 1.72) };
+      const bmi = heightMeters > 0 ? weight / (heightMeters * heightMeters) : null;
+      const entry: BodyStat = { date, day: recordDay, weight, muscle, bodyFat, bmi };
       setBodyStats((items) => [...items.filter((item) => item.date !== date), entry].sort((a, b) => a.date.localeCompare(b.date)));
     }
     markDate(date);
@@ -485,6 +522,11 @@ export default function Home() {
       setSession(nextSession);
       localStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
       hydrateState(result.state ?? {});
+      if (result.created) {
+        setProfileSetupCompleted(false);
+        setProfileSetupOpen(false);
+        setProfileForm({ weight: "", height: "" });
+      }
       setDailyOpen(true);
     } catch (error) { setAuthError(error instanceof Error ? error.message : "로그인에 실패했습니다."); }
     finally { setAuthBusy(false); }
@@ -494,7 +536,7 @@ export default function Home() {
     if (session) await logoutAccount(session.token).catch(() => undefined);
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(STORAGE_KEY);
-    setSession(null); setWeights([]); setChecks({}); setLoadHistory([]); setLoadInputs({}); setActiveDates([]); setBodyStats([]); setFoodChats([]); setDailyOpen(false); setAuthForm({ name: "", pin: "" });
+    setSession(null); setWeights([]); setWeightInput(""); setChecks({}); setLoadHistory([]); setLoadInputs({}); setActiveDates([]); setBodyStats([]); setBodyForm({ weight: "", muscle: "", bodyFat: "" }); setFoodChats([]); setHeightCm(null); setProfileSetupCompleted(true); setProfileSetupOpen(false); setProfileForm({ weight: "", height: "" }); setDailyOpen(false); setAuthForm({ name: "", pin: "" });
   }
 
   if (!authReady) return <main className="auth-loading"><div className="auth-loader" /><span>자기관리 공간을 준비하고 있어요</span></main>;
@@ -545,8 +587,8 @@ export default function Home() {
             <article className={`coach-card coach-${coach.persona.toLowerCase()}`}><div className="coach-badge">{coach.persona}</div><div><p>{coach.persona === "T" ? "오늘의 팩트 코치" : "오늘의 마음 코치"}</p><h2>{coach.line}</h2></div><span className="quote-mark">”</span></article>
 
             <article className="weight-card card">
-              <div className="card-heading"><div><p className="section-label">WEIGHT TREND</p><h2>숫자보다 <em>7일의 흐름</em></h2></div><div className="weight-stat"><strong>{currentWeight.toFixed(1)}</strong><span>kg</span><small>{change.toFixed(1)}kg</small></div></div>
-              <div className="chart"><div className="average-line" style={{ bottom: `${((sevenDayAverage - chartMin) / (chartMax - chartMin)) * 100}%` }}><span>7회 평균 {sevenDayAverage.toFixed(1)}</span></div>{chartData.map((entry) => { const height = 18 + ((entry.weight - chartMin) / (chartMax - chartMin)) * 68; return <div className="chart-column" key={entry.day}><span className="bar-value">{entry.weight.toFixed(1)}</span><div className={entry.day === day ? "bar active" : "bar"} style={{ height: `${height}%` }} /><small>D{entry.day}</small></div>; })}</div>
+              <div className="card-heading"><div><p className="section-label">WEIGHT TREND</p><h2>숫자보다 <em>7일의 흐름</em></h2></div><div className="weight-stat"><strong>{currentWeight !== null ? currentWeight.toFixed(1) : "—"}</strong>{currentWeight !== null && <span>kg</span>}<small>{change !== null ? `${change.toFixed(1)}kg` : "첫 기록을 기다려요"}</small></div></div>
+              <div className={chartData.length ? "chart" : "chart empty-chart"}>{chartData.length ? <><div className="average-line" style={{ bottom: `${(((sevenDayAverage ?? chartMin) - chartMin) / (chartMax - chartMin)) * 100}%` }}><span>7회 평균 {sevenDayAverage?.toFixed(1)}</span></div>{chartData.map((entry) => { const height = 18 + ((entry.weight - chartMin) / (chartMax - chartMin)) * 68; return <div className="chart-column" key={entry.day}><span className="bar-value">{entry.weight.toFixed(1)}</span><div className={entry.day === day ? "bar active" : "bar"} style={{ height: `${height}%` }} /><small>D{entry.day}</small></div>; })}</> : <div className="chart-empty-copy"><b>아직 체중 기록이 없어요.</b><span>첫 체중을 입력하면 변화 그래프가 시작됩니다.</span></div>}</div>
               <form className="weight-form" onSubmit={saveWeight}><label htmlFor="weight">{viewingToday ? "오늘" : selectedDate.slice(5).replace("-", ".")} 아침 공복 체중</label><div className="input-shell"><input id="weight" inputMode="decimal" value={weightInput} onChange={(e) => setWeightInput(e.target.value)} /><span>kg</span></div><button type="submit">{viewingToday ? "오늘" : "지난"} 기록 저장 <span>→</span></button></form>
               <p className="tiny-note">날짜를 뒤로 이동하면 지나간 날의 기록도 언제든 보완할 수 있습니다.</p>
             </article>
@@ -574,11 +616,11 @@ export default function Home() {
         </section>}
 
         {tab === "records" && <section className="records-page page-panel">
-          <div className="page-title-row"><div><p className="kicker">MY 50-DAY LOG</p><h1>쌓인 기록</h1><p>체중의 방향과 기구 중량의 성장을 함께 확인하세요.</p></div><div className="record-summary"><span>누적 변화</span><strong>{change.toFixed(1)}<small>kg</small></strong></div></div>
+          <div className="page-title-row"><div><p className="kicker">MY 50-DAY LOG</p><h1>쌓인 기록</h1><p>체중의 방향과 기구 중량의 성장을 함께 확인하세요.</p></div><div className="record-summary"><span>누적 변화</span><strong>{change !== null ? change.toFixed(1) : "—"}{change !== null && <small>kg</small>}</strong></div></div>
           <form className="past-record-card card" onSubmit={savePastRecord}><div><p className="section-label">BACKFILL RECORD</p><h2>지난 기록 입력</h2><span>8월 10일부터 접속일 사이의 날짜를 골라 빠진 기록을 채우세요.</span></div><label><span>기록 날짜</span><input type="date" min={PLAN_START} max={availableEnd} value={pastForm.date} onChange={(e) => setPastForm((value) => ({ ...value, date: e.target.value }))} /></label><label><span>체중 · 필수</span><div><input inputMode="decimal" placeholder="예: 73.2" value={pastForm.weight} onChange={(e) => setPastForm((value) => ({ ...value, weight: e.target.value }))} /><b>kg</b></div></label><label><span>근육량 · 선택</span><div><input inputMode="decimal" placeholder="예: 30.0" value={pastForm.muscle} onChange={(e) => setPastForm((value) => ({ ...value, muscle: e.target.value }))} /><b>kg</b></div></label><label><span>체지방률 · 선택</span><div><input inputMode="decimal" placeholder="예: 22.0" value={pastForm.bodyFat} onChange={(e) => setPastForm((value) => ({ ...value, bodyFat: e.target.value }))} /><b>%</b></div></label><button type="submit">지난 기록 저장 <span>→</span></button></form>
-          <div className="record-grid"><article className="record-table card"><div className="card-heading compact"><div><p className="section-label">WEIGHT LOG</p><h2>체중 기록</h2></div><span className="stage-pill">{weights.length}회</span></div><div className="table-head"><span>날짜 / 일차</span><span>체중</span><span>시작 대비</span></div>{[...weights].reverse().map((entry) => <div className="table-row" key={entry.day}><span>{dateFromPlanDay(entry.day).slice(5).replace("-", ".")} · D{entry.day}</span><strong>{entry.weight.toFixed(1)} kg</strong><em>{(entry.weight - 74).toFixed(1)} kg</em></div>)}</article>
+          <div className="record-grid"><article className="record-table card"><div className="card-heading compact"><div><p className="section-label">WEIGHT LOG</p><h2>체중 기록</h2></div><span className="stage-pill">{weights.length}회</span></div><div className="table-head"><span>날짜 / 일차</span><span>체중</span><span>시작 대비</span></div>{weights.length === 0 ? <div className="body-empty">첫 체중을 기록하면 여기에 쌓입니다.</div> : [...weights].reverse().map((entry) => <div className="table-row" key={entry.day}><span>{dateFromPlanDay(entry.day).slice(5).replace("-", ".")} · D{entry.day}</span><strong>{entry.weight.toFixed(1)} kg</strong><em>{startingWeight !== null ? `${(entry.weight - startingWeight).toFixed(1)} kg` : "—"}</em></div>)}</article>
             <article className="rules-card card"><p className="section-label">STREAK SYSTEM</p><h2>연속성을 만드는 장치</h2><ol><li><span>🔥</span><div><b>{weightStreak}일 연속 체중 기록</b><p>아침 체중을 저장한 날만 불꽃이 이어집니다.</p></div></li><li><span>🧊</span><div><b>보호권 {freezePasses}개</b><p>딱 하루 놓치면 자동으로 연속 기록을 보호합니다.</p></div></li><li><span>✓</span><div><b>판정 기준은 명확하게</b><p>운동 체크와 별개로 체중 기록 여부만 표시합니다.</p></div></li></ol></article>
-            <article className="record-chart-card card"><div className="card-heading compact"><div><p className="section-label">WEIGHT GRAPH</p><h2>최근 체중 추세</h2></div><span className="stage-pill">최근 {recordChart.length}회</span></div><div className="record-chart-summary"><div><span>현재</span><strong>{currentWeight.toFixed(1)}kg</strong></div><div><span>7회 평균</span><strong>{sevenDayAverage.toFixed(1)}kg</strong></div><div><span>목표 구간</span><strong>68—70kg</strong></div></div><div className="record-chart" aria-label="최근 체중 변화 그래프"><div className="target-band"><span>목표 68—70kg</span></div>{recordChart.map((entry, index) => { const bottom = ((entry.weight - recordMin) / (recordMax - recordMin)) * 100; const next = recordChart[index + 1]; const nextBottom = next ? ((next.weight - recordMin) / (recordMax - recordMin)) * 100 : bottom; const dx = 100 / Math.max(1, recordChart.length - 1); const dy = nextBottom - bottom; return <div className="record-point-wrap" key={entry.day} style={{ left: `${index * dx}%`, bottom: `${bottom}%` }}><i className="record-point" /><b>{entry.weight.toFixed(1)}</b><small>D{entry.day}</small>{next && <span className="record-line" style={{ width: `calc(${dx} * 1%)`, transform: `rotate(${-Math.atan2(dy, dx) * 180 / Math.PI}deg)`, transformOrigin: "left center" }} />}</div>; })}</div><p className="chart-footnote">하루 수치보다 같은 조건에서 쌓인 흐름을 보세요.</p></article>
+            <article className="record-chart-card card"><div className="card-heading compact"><div><p className="section-label">WEIGHT GRAPH</p><h2>최근 체중 추세</h2></div><span className="stage-pill">최근 {recordChart.length}회</span></div><div className="record-chart-summary"><div><span>현재</span><strong>{currentWeight !== null ? `${currentWeight.toFixed(1)}kg` : "—"}</strong></div><div><span>7회 평균</span><strong>{sevenDayAverage !== null ? `${sevenDayAverage.toFixed(1)}kg` : "—"}</strong></div><div><span>목표 구간</span><strong>68—70kg</strong></div></div><div className={recordChart.length ? "record-chart" : "record-chart empty-record-chart"} aria-label="최근 체중 변화 그래프"><div className="target-band"><span>목표 68—70kg</span></div>{recordChart.length === 0 ? <div className="chart-empty-copy"><b>기록을 기다리고 있어요.</b><span>체중을 입력하면 선 그래프로 보여드려요.</span></div> : recordChart.map((entry, index) => { const bottom = ((entry.weight - recordMin) / (recordMax - recordMin)) * 100; const next = recordChart[index + 1]; const nextBottom = next ? ((next.weight - recordMin) / (recordMax - recordMin)) * 100 : bottom; const dx = 100 / Math.max(1, recordChart.length - 1); const dy = nextBottom - bottom; return <div className="record-point-wrap" key={entry.day} style={{ left: `${index * dx}%`, bottom: `${bottom}%` }}><i className="record-point" /><b>{entry.weight.toFixed(1)}</b><small>D{entry.day}</small>{next && <span className="record-line" style={{ width: `calc(${dx} * 1%)`, transform: `rotate(${-Math.atan2(dy, dx) * 180 / Math.PI}deg)`, transformOrigin: "left center" }} />}</div>; })}</div><p className="chart-footnote">하루 수치보다 같은 조건에서 쌓인 흐름을 보세요.</p></article>
             <article className="load-progress card"><div className="card-heading compact"><div><p className="section-label">STRENGTH PROGRESS</p><h2>들어 올린 무게의 성장</h2></div><span className="stage-pill">{loadHistory.length}세트 기록</span></div>{progressRows.length === 0 ? <div className="empty-progress"><strong>첫 중량을 기다리고 있어요.</strong><span>운동 탭에서 중량을 맞춘 뒤 완료 체크하면 여기에 성장 기록이 쌓입니다.</span></div> : <div className="load-table"><div className="load-head"><span>운동</span><span>첫 기록</span><span>최근</span><span>증가</span></div>{progressRows.map((row) => <div className="load-row" key={row.name}><b>{row.name}</b><span>{row.first}kg</span><strong>{row.latest}kg</strong><em>+{((row.latest ?? 0) - (row.first ?? 0)).toFixed(0)}kg</em></div>)}</div>}</article>
             <article className="body-composition card">
               <div className="card-heading compact"><div><p className="section-label">WEEKLY BODY CHECK</p><h2>주 1회 체성분 기록</h2></div><span className="stage-pill">BMI 자동 계산</span></div>
@@ -587,12 +629,12 @@ export default function Home() {
                   <label><span>체중</span><div><input inputMode="decimal" value={bodyForm.weight} onChange={(e) => setBodyForm((v) => ({ ...v, weight: e.target.value }))} /><b>kg</b></div></label>
                   <label><span>근육량</span><div><input inputMode="decimal" value={bodyForm.muscle} onChange={(e) => setBodyForm((v) => ({ ...v, muscle: e.target.value }))} /><b>kg</b></div></label>
                   <label><span>체지방률</span><div><input inputMode="decimal" value={bodyForm.bodyFat} onChange={(e) => setBodyForm((v) => ({ ...v, bodyFat: e.target.value }))} /><b>%</b></div></label>
-                  <div className="bmi-preview"><span>172cm 기준 BMI</span><strong>{Number.isFinite(bodyBmi) ? bodyBmi.toFixed(1) : "—"}</strong><small>체중으로 자동 계산</small></div>
+                  <div className="bmi-preview"><span>{heightCm ? `${heightCm}cm 기준 BMI` : "키를 입력하면 BMI 계산"}</span><strong>{bodyBmi !== null && Number.isFinite(bodyBmi) ? bodyBmi.toFixed(1) : "—"}</strong><small>{heightCm ? "체중으로 자동 계산" : "초기 설정을 건너뛴 경우 BMI는 표시되지 않아요"}</small></div>
                   <button type="submit">이번 주 기록 저장 <span>→</span></button>
                 </form>
                 <div className="body-history">
                   <div className="body-head"><span>측정일</span><span>체중</span><span>근육</span><span>체지방</span><span>BMI</span></div>
-                  {bodyStats.length === 0 ? <div className="body-empty">아직 주간 기록이 없어요. 같은 요일·비슷한 조건으로 측정해 보세요.</div> : [...bodyStats].reverse().map((entry) => <div className="body-row" key={entry.date}><b>{entry.date.slice(5).replace("-", ".")}</b><span>{entry.weight.toFixed(1)}kg</span><span>{entry.muscle.toFixed(1)}kg</span><span>{entry.bodyFat.toFixed(1)}%</span><strong>{entry.bmi.toFixed(1)}</strong></div>)}
+                  {bodyStats.length === 0 ? <div className="body-empty">아직 주간 기록이 없어요. 같은 요일·비슷한 조건으로 측정해 보세요.</div> : [...bodyStats].reverse().map((entry) => <div className="body-row" key={entry.date}><b>{entry.date.slice(5).replace("-", ".")}</b><span>{entry.weight.toFixed(1)}kg</span><span>{entry.muscle.toFixed(1)}kg</span><span>{entry.bodyFat.toFixed(1)}%</span><strong>{entry.bmi !== null ? entry.bmi.toFixed(1) : "—"}</strong></div>)}
                 </div>
               </div>
             </article>
@@ -630,7 +672,7 @@ export default function Home() {
 
       {guide && selectedGuide && <div className="guide-backdrop" onMouseDown={() => setSelectedGuide(null)}><section className="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title" onMouseDown={(e) => e.stopPropagation()}><button className="guide-close" onClick={() => setSelectedGuide(null)} aria-label="자세 가이드 닫기">×</button><div className="guide-heading"><div><p>FORM GUIDE · {guide.focus}</p><h2 id="guide-title">{selectedGuide} 올바른 순서</h2></div><span>{guide.program ? selectedGuide === "하체 날 런닝머신 걷기" ? "30 MIN" : "15 MIN" : "4 × 15"}</span></div><div className="guide-tabs" role="tablist"><button className={guideView === "photo" ? "active" : ""} onClick={() => setGuideView("photo")}>단계별 사진</button><button className={guideView === "motion" ? "active" : ""} onClick={() => setGuideView("motion")}>동작 영상</button></div>{guideView === "photo" ? <img className="guide-media" src={guide.image} alt={`${selectedGuide} 시작, 동작, 마무리 자세 순서`} /> : <div className="motion-player"><img src={guide.motion} alt={`${selectedGuide} 동작 영상 미리보기`} /><span>동작 영상 · 자동 반복</span></div>}{guide.program && <div className="guide-program">{guide.program.map((item, index) => <div key={item.time}><b>{String(index + 1).padStart(2, "0")}</b><span>{item.time}</span><strong>{item.target}</strong></div>)}</div>}<ol>{guide.steps.map((step, index) => <li key={step}><b>0{index + 1}</b><span>{step}</span></li>)}</ol><div className="guide-caution"><strong>!</strong><span><b>안전 체크</b>{guide.caution}</span></div><button className="guide-confirm" onClick={() => setSelectedGuide(null)}>자세 확인했어요</button></section></div>}
 
-      {dailyOpen && <div className="daily-backdrop"><section className="daily-card" style={{ backgroundImage: `linear-gradient(90deg, rgba(10,17,31,.94), rgba(10,17,31,.18)), url(${daily.image})` }} role="dialog" aria-modal="true" aria-labelledby="daily-title"><div className="daily-top"><div className="daily-streak">🔥 {weightStreak}일 연속 · {dDay > 0 ? `D-${dDay}` : dDay === 0 ? "D-DAY" : `D+${Math.abs(dDay)}`}</div><div className={`daily-mascot ${mascot.state}`} role="img" aria-label={`${mascot.label} 호랑이 코치`} /></div><div className="daily-content"><p>DAY {accessDay} · {mascot.label}의 한 문장</p><h2 id="daily-title">{daily.quote}</h2><span>{todayComplete ? "오늘 체중 기록 완료. 불꽃을 지켰어요!" : mascot.message}</span><button onClick={closeDaily}>오늘도 이어가기 <b>→</b></button></div></section></div>}
+      {dailyOpen && <div className="daily-backdrop"><section className="daily-card" style={{ backgroundImage: `linear-gradient(90deg, rgba(10,17,31,.94), rgba(10,17,31,.18)), url(${daily.image})` }} role="dialog" aria-modal="true" aria-labelledby="daily-title"><div className="daily-top"><div className="daily-streak">🔥 {weightStreak}일 연속 · {dDay > 0 ? `D-${dDay}` : dDay === 0 ? "D-DAY" : `D+${Math.abs(dDay)}`}</div><div className={`daily-mascot ${mascot.state}`} role="img" aria-label={`${mascot.label} 호랑이 코치`} /></div><div className="daily-content"><p>DAY {accessDay} · {mascot.label}의 한 문장</p><h2 id="daily-title">{daily.quote}</h2><span>{todayComplete ? "오늘 체중 기록 완료. 불꽃을 지켰어요!" : mascot.message}</span>{profileSetupOpen ? <form className="profile-setup-form" onSubmit={(event) => { event.preventDefault(); finishProfileSetup(); }}><div className="profile-setup-heading"><b>처음 한 번만 알려주세요</b><span>BMI와 체중 변화를 사용자에게 맞게 계산해요.</span></div><div className="profile-setup-fields"><label><span>초기 체중</span><div><input autoFocus inputMode="decimal" placeholder="예: 70.5" value={profileForm.weight} onChange={(event) => setProfileForm((value) => ({ ...value, weight: event.target.value }))} /><b>kg</b></div></label><label><span>키</span><div><input inputMode="decimal" placeholder="예: 172" value={profileForm.height} onChange={(event) => setProfileForm((value) => ({ ...value, height: event.target.value }))} /><b>cm</b></div></label></div>{profileError && <p className="profile-error" role="alert">{profileError}</p>}<div className="profile-setup-actions"><button type="submit">입력하고 시작하기 <b>→</b></button><button type="button" className="profile-skip" onClick={() => finishProfileSetup(true)}>지금은 건너뛰기</button></div></form> : <button onClick={closeDaily}>오늘도 이어가기 <b>→</b></button>}</div></section></div>}
 
       {modal && <div className="modal-backdrop" role="presentation" onMouseDown={() => setModal(null)}><section className={`coach-modal modal-${modal.persona.toLowerCase()}`} role="dialog" aria-modal="true" aria-labelledby="coach-title" onMouseDown={(e) => e.stopPropagation()}><button className="modal-close" onClick={() => setModal(null)} aria-label="코칭 닫기">×</button><div className="modal-persona">{modal.persona}</div><p>{modal.eyebrow}</p><h2 id="coach-title">{modal.title}</h2><blockquote>{modal.body}</blockquote><button className="modal-confirm" onClick={() => setModal(null)}>좋아요, 그렇게 할게요</button></section></div>}
     </main>
