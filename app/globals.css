@@ -235,6 +235,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .daily-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 22px; background: rgba(8,14,26,.84); backdrop-filter: blur(7px); }
 .daily-card { width: min(940px, 100%); min-height: min(670px, calc(100vh - 44px)); padding: 50px; background-size: cover; background-position: center; color: white; box-shadow: 0 35px 100px rgba(0,0,0,.5); display: flex; flex-direction: column; justify-content: space-between; animation: daily-in .42s cubic-bezier(.2,.8,.2,1) both; }
 .daily-streak { width: fit-content; border: 1px solid rgba(255,255,255,.35); background: rgba(10,17,31,.45); backdrop-filter: blur(8px); padding: 9px 13px; font-size: 11px; font-weight: 900; }
+.daily-top { display: flex; align-items: flex-start; justify-content: space-between; }.daily-mascot { width: 115px; height: 150px; margin: -22px -18px 0 0; background-image: url('/coach-tiger-sprite.png'); background-size: 300% 100%; background-repeat: no-repeat; background-position: 0 center; filter: drop-shadow(0 12px 17px rgba(0,0,0,.32)); }.daily-mascot.afternoon { background-position: 50% center; }.daily-mascot.night { background-position: 100% center; }.daily-mascot.urgent { animation: mascot-plead 1.25s ease-in-out infinite; }
 .daily-content { max-width: 570px; }.daily-content > p { color: var(--coral); font-size: 10px; font-weight: 900; letter-spacing: .15em; }.daily-content h2 { margin: 13px 0 19px; font-size: clamp(38px, 6vw, 68px); line-height: 1.15; letter-spacing: -.065em; word-break: keep-all; text-wrap: balance; }.daily-content > span { display: block; color: rgba(255,255,255,.75); font-size: 14px; line-height: 1.6; }
 .daily-content button { width: min(310px, 100%); height: 55px; margin-top: 31px; border: 0; background: var(--coral); color: var(--ink); padding: 0 19px; display: flex; align-items: center; justify-content: space-between; font-weight: 900; cursor: pointer; }.daily-content button b { font-size: 20px; }.daily-content small { display: block; margin-top: 12px; color: rgba(255,255,255,.63); font-size: 9px; }
 @keyframes daily-in { from { opacity: 0; transform: scale(.97) translateY(18px); } }
@@ -255,4 +256,65 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
   .exercise-row { grid-template-columns: 37px 1fr 34px; gap: 9px; padding: 14px 0; }.exercise-copy { min-width: 0; }.exercise-copy b { font-size: 13px; }.load-stepper { grid-column: 2; grid-row: 2; width: 126px; }.check-circle { grid-column: 3; grid-row: 1 / 3; }
   .load-progress { padding: 24px 19px; }.load-head, .load-row { grid-template-columns: 1.4fr repeat(3, .8fr); font-size: 9px; }.load-row strong { font-size: 12px; }
   .daily-backdrop { padding: 0; }.daily-card { width: 100%; min-height: 100vh; padding: 29px 22px 42px; background-position: 63% center; }.daily-content h2 { font-size: 40px; }.daily-content > span { font-size: 12px; }.daily-content button { width: 100%; }
+  .daily-mascot { width: 94px; height: 125px; margin: -10px -9px 0 0; }
+}
+
+/* Readability pass */
+body { font-size: 16px; line-height: 1.58; }
+.kicker, .section-label { font-size: 12px; line-height: 1.35; }
+.milestone span, .milestone small { font-size: 10px; line-height: 1.35; }.milestone strong { font-size: 15px; }
+.coach-card p { font-size: 12px; }.coach-card h2 { font-size: clamp(19px, 2vw, 25px); }.coach-card { min-height: 144px; }
+.tiny-note, .stage-pill, .principles span, .defense-actions small, .page-title-row p:not(.kicker), .pain-notice, .exercise-copy small, .workout-footer span, .rules-card p { font-size: 12px; }
+.principles b, .defense-actions b, .rules-card b { font-size: 14px; }.mission-main span { font-size: 11px; }.mission-main strong { font-size: 18px; }
+.list-title, .list-title b { font-size: 11px; }.table-head { font-size: 11px; }.table-row { font-size: 13px; }.table-row strong { font-size: 15px; }
+.bottom-nav b { font-size: 13px; }.streak-chip b { font-size: 13px; }
+
+/* Time-aware original tiger coach */
+.streak-panel { min-height: 190px; padding: 22px 28px 18px 20px; grid-template-columns: 128px minmax(290px, 1.3fr) minmax(310px, 1fr) auto; border: 2px solid var(--coral); box-shadow: 0 16px 42px rgba(255,107,87,.14); }
+.streak-panel.safe { border-width: 2px; }
+.mascot-art { width: 118px; height: 150px; align-self: end; background-image: url('/coach-tiger-sprite.png'); background-size: 300% 100%; background-repeat: no-repeat; background-position: 0 center; filter: drop-shadow(0 8px 10px rgba(23,34,59,.12)); }
+.mascot-art.afternoon { background-position: 50% center; }.mascot-art.night { background-position: 100% center; }.mascot-art.urgent { animation: mascot-plead 1.25s ease-in-out infinite; }
+.streak-copy p { font-size: 12px; margin-bottom: 7px; }.streak-copy h2 { font-size: clamp(21px, 2.2vw, 28px); line-height: 1.28; color: #8f2415; }
+.streak-panel.safe .streak-copy h2 { color: #315f40; }
+.streak-copy .mascot-message { margin-top: 9px; color: var(--ink); font-size: 14px; font-weight: 750; line-height: 1.5; }.streak-copy small { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; }
+.week-dots div { font-size: 10px; }.week-dots i { width: 32px; height: 32px; font-size: 13px; }.streak-side span { font-size: 11px; }.streak-side button { min-height: 44px; font-size: 11px; }
+@keyframes mascot-plead { 50% { transform: translateY(-4px) rotate(-1.5deg); } }
+
+/* Exercise selection and form guide */
+.exercise-row { min-height: 90px; cursor: default; }
+.exercise-name { border: 0; padding: 0; background: transparent; color: var(--ink); font-size: 16px; font-weight: 850; text-align: left; cursor: default; }
+.exercise-name.has-guide { cursor: pointer; }.exercise-name.has-guide:hover { color: var(--coral); }
+.exercise-name i { display: inline; margin-left: 10px; color: var(--coral); font-size: 10px; font-style: normal; text-decoration: none; }.exercise-copy small { margin-top: 5px; }.exercise-copy em { font-size: 10px; }
+.exercise-row.checked .exercise-name { text-decoration: line-through; color: #8b908d; }.exercise-row.optional { background: #faf8f2; }.exercise-row.optional .exercise-index { color: #6f9b62; }
+.optional-title { margin-top: 30px; border-top: 2px solid var(--ink); background: #f0f6ed; padding-inline: 12px; }.optional-note { padding: 13px 14px; color: #526151; background: #f0f6ed; border-bottom: 1px solid #d5e1cf; font-size: 12px; }
+.guide-backdrop { position: fixed; inset: 0; z-index: 90; background: rgba(9,15,27,.82); backdrop-filter: blur(6px); padding: 20px; display: grid; place-items: center; overflow-y: auto; }
+.guide-modal { width: min(920px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; background: var(--white); padding: 34px; position: relative; box-shadow: 0 35px 90px rgba(0,0,0,.42); }
+.guide-close { position: absolute; right: 17px; top: 12px; z-index: 2; width: 38px; height: 38px; border: 0; border-radius: 50%; background: var(--ink); color: white; font-size: 22px; cursor: pointer; }
+.guide-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; margin-bottom: 20px; padding-right: 45px; }.guide-heading p { margin: 0 0 6px; color: var(--coral); font-size: 11px; font-weight: 900; letter-spacing: .12em; }.guide-heading h2 { margin: 0; font-size: clamp(25px, 3.5vw, 38px); letter-spacing: -.05em; }.guide-heading > span { border: 1px solid var(--ink); padding: 6px 9px; font-size: 10px; font-weight: 900; white-space: nowrap; }
+.guide-modal > img { width: 100%; aspect-ratio: 3 / 1.38; object-fit: cover; display: block; background: #e9e6de; }
+.guide-modal ol { list-style: none; margin: 21px 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; }.guide-modal li { min-height: 105px; border-top: 3px solid var(--coral); background: #f5f2eb; padding: 15px; display: flex; gap: 11px; }.guide-modal li b { color: var(--coral); font: 800 11px/1.5 var(--font-geist-mono); }.guide-modal li span { font-size: 13px; line-height: 1.55; word-break: keep-all; }
+.guide-caution { padding: 16px 18px; background: #fff0eb; display: flex; align-items: center; gap: 14px; }.guide-caution > strong { flex: 0 0 32px; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--coral); }.guide-caution span, .guide-caution b { display: block; font-size: 12px; }.guide-caution b { margin-bottom: 3px; }.guide-confirm { width: 100%; height: 50px; margin-top: 15px; border: 0; background: var(--ink); color: white; font-size: 13px; font-weight: 850; cursor: pointer; }
+
+/* Weekly body composition */
+.body-composition { grid-column: 1 / -1; padding: 30px; }.body-layout { display: grid; grid-template-columns: minmax(330px, .75fr) minmax(440px, 1.25fr); gap: 30px; margin-top: 24px; }
+.body-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 11px; align-content: start; }.body-form label > span { display: block; margin-bottom: 7px; font-size: 11px; font-weight: 850; }.body-form label > div { height: 48px; display: flex; align-items: center; border: 1px solid var(--line); background: white; padding: 0 10px; }.body-form input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 19px; font-weight: 850; }.body-form label b { font-size: 10px; color: var(--muted); }
+.bmi-preview { grid-column: 1 / -1; min-height: 83px; background: var(--ink); color: white; padding: 15px 18px; display: grid; grid-template-columns: 1fr auto; align-items: center; }.bmi-preview span { font-size: 11px; font-weight: 800; }.bmi-preview strong { grid-row: span 2; font-size: 37px; color: var(--coral); letter-spacing: -.06em; }.bmi-preview small { color: #aeb4bf; font-size: 10px; }.body-form > button { grid-column: 1 / -1; height: 49px; border: 0; background: var(--coral); color: var(--ink); padding: 0 16px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 900; cursor: pointer; }
+.body-history { border-top: 2px solid var(--ink); }.body-head, .body-row { display: grid; grid-template-columns: 1.15fr repeat(4, 1fr); align-items: center; min-height: 51px; border-bottom: 1px solid var(--line); font-size: 12px; }.body-head { min-height: 37px; color: var(--muted); font-size: 10px; }.body-row strong { color: var(--coral); font-size: 15px; }.body-empty { min-height: 150px; display: grid; place-items: center; text-align: center; color: var(--muted); background: #f5f2eb; padding: 25px; font-size: 12px; }
+
+@media (max-width: 1050px) {
+  .streak-panel { grid-template-columns: 110px 1fr auto; }.mascot-art { width: 105px; height: 138px; }.week-dots { grid-column: 2 / -1; }.streak-side { grid-row: 1; grid-column: 3; }
+  .body-layout { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 800px) {
+  .streak-panel { grid-template-columns: 95px 1fr; }.mascot-art { width: 90px; height: 124px; }.streak-side { grid-row: auto; grid-column: 1 / -1; }.week-dots { grid-column: 1 / -1; }
+  .guide-modal ol { grid-template-columns: 1fr; }.guide-modal li { min-height: auto; }.guide-modal > img { aspect-ratio: 3 / 1.65; }
+}
+
+@media (max-width: 540px) {
+  body { font-size: 15px; }.kicker, .section-label { font-size: 11px; }
+  .streak-panel { min-height: 0; grid-template-columns: 86px 1fr; padding: 16px 15px 15px 8px; gap: 10px; }.mascot-art { width: 84px; height: 114px; }.streak-copy h2 { font-size: 19px; }.streak-copy .mascot-message { font-size: 12px; }.streak-copy p { font-size: 10px; }.streak-copy small { font-size: 10px; }.week-dots i { width: 30px; height: 30px; }
+  .exercise-row { grid-template-columns: 34px 1fr 34px; }.exercise-name { font-size: 15px; }.exercise-name i { display: block; margin: 3px 0 0; }.list-title b { max-width: 58%; text-align: right; line-height: 1.3; }
+  .guide-backdrop { padding: 0; }.guide-modal { width: 100%; max-height: 100vh; min-height: 100vh; padding: 25px 18px 34px; }.guide-heading { align-items: flex-start; }.guide-modal > img { aspect-ratio: 1.65 / 1; }.guide-heading h2 { font-size: 27px; }
+  .body-composition { padding: 24px 18px; }.body-form { grid-template-columns: 1fr; }.body-form label, .body-form > button, .bmi-preview { grid-column: 1; }.body-head, .body-row { grid-template-columns: 1.15fr repeat(4, .88fr); font-size: 10px; }.body-head { font-size: 9px; }
 }

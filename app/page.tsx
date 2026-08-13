@@ -7,6 +7,7 @@ type Persona = "T" | "F";
 type WeightEntry = { day: number; weight: number };
 type LoadEntry = { day: number; name: string; kg: number };
 type Exercise = { name: string; detail: string; weighted?: boolean };
+type BodyStat = { date: string; day: number; weight: number; muscle: number; bodyFat: number; bmi: number };
 
 const INITIAL_WEIGHTS: WeightEntry[] = [
   { day: 1, weight: 74 }, { day: 3, weight: 73.7 }, { day: 5, weight: 73.5 },
@@ -45,9 +46,40 @@ const ROUTINES: Record<string, Exercise[]> = {
   ],
 };
 
+const OPTIONAL: Record<string, Exercise[]> = {
+  push: [
+    { name: "체스트 플라이", detail: "가볍게 3세트 × 12—15회", weighted: true },
+    { name: "사이드 레터럴 레이즈", detail: "반동 없이 3세트 × 12—15회", weighted: true },
+  ],
+  pull: [
+    { name: "페이스 풀", detail: "어깨 뒤쪽 3세트 × 12—15회", weighted: true },
+    { name: "백 익스텐션", detail: "허리 중립 3세트 × 12회" },
+  ],
+  legs: [
+    { name: "힙 어브덕션", detail: "둔근 집중 3세트 × 15회", weighted: true },
+    { name: "카프 레이즈", detail: "정점 정지 3세트 × 15회", weighted: true },
+  ],
+  pain: [
+    { name: "페이스 풀", detail: "앉아서 3세트 × 15회", weighted: true },
+    { name: "데드버그", detail: "천천히 좌우 10회 × 3세트" },
+  ],
+};
+
+const EXERCISE_GUIDES: Record<string, { image: string; focus: string; steps: string[]; caution: string }> = {
+  벤치프레스: { image: "/exercise-bench-press.png", focus: "가슴 · 삼두 · 전면 어깨", steps: ["눈이 바 아래 오도록 눕고 발·엉덩이·등·머리를 안정시켜요.", "어깨뼈를 뒤와 아래로 고정하고 바를 가슴 중앙으로 천천히 내려요.", "손목 아래에 팔꿈치를 두고 발로 바닥을 밀며 곧게 올려요."], caution: "엄지까지 감싼 그립을 쓰고, 어깨가 들리거나 엉덩이가 뜨면 중량을 낮추세요." },
+  숄더프레스: { image: "/exercise-shoulder-press.png", focus: "어깨 · 삼두", steps: ["손잡이가 어깨 높이에 오도록 좌석을 맞추고 등을 붙여요.", "손목과 팔꿈치를 수직으로 두고 머리 위로 부드럽게 밀어요.", "허리를 과하게 꺾지 말고 팔꿈치를 잠그기 직전에 멈춰요."], caution: "목 뒤로 밀지 말고 통증 없는 범위에서만 움직이세요." },
+  랫풀다운: { image: "/exercise-lat-pulldown.png", focus: "광배근 · 등", steps: ["허벅지 패드를 고정하고 배에 힘을 준 채 바를 잡아요.", "어깨를 먼저 아래로 내린 뒤 상체를 30도 이내로만 기울여요.", "바를 윗가슴 쪽으로 당기고 반동 없이 천천히 되돌려요."], caution: "바를 목 뒤로 당기거나 허리를 크게 젖히지 마세요." },
+  "시티드 로우": { image: "/exercise-seated-row.png", focus: "등 중앙 · 광배근", steps: ["무릎을 살짝 굽히고 허리를 중립으로 세워 손잡이를 잡아요.", "몸통을 고정한 채 팔꿈치를 뒤로 보내며 아랫가슴 쪽으로 당겨요.", "등을 둥글게 말지 않고 팔을 천천히 펴며 돌아가요."], caution: "몸을 앞뒤로 흔들어 중량을 당기지 마세요." },
+  레그프레스: { image: "/exercise-leg-press.png", focus: "대퇴사두근 · 둔근", steps: ["발을 어깨너비로 놓고 허리와 골반을 패드에 붙여요.", "무릎이 발끝 방향을 따라가게 하며 약 90도까지 천천히 내려요.", "발바닥 전체로 밀고 무릎이 완전히 잠기기 전에 멈춰요."], caution: "골반이 말려 들리거나 무릎이 안쪽으로 모이면 가동범위와 중량을 줄이세요." },
+  레그익스텐션: { image: "/exercise-leg-extension.png", focus: "대퇴사두근", steps: ["기구 회전축과 무릎 관절을 맞추고 패드를 발목 위에 놓아요.", "등을 붙인 채 정강이 패드를 부드럽게 들어 올려요.", "무릎을 세게 잠그지 않고 정점에서 멈춘 뒤 천천히 내려요."], caution: "무릎 앞쪽 통증이 있으면 중량과 가동범위를 즉시 줄이세요." },
+  레그컬: { image: "/exercise-leg-curl.png", focus: "햄스트링", steps: ["기구 회전축과 무릎을 맞추고 허벅지 패드를 고정해요.", "엉덩이가 들리지 않게 발꿈치를 아래와 뒤로 당겨요.", "가장 깊은 편안한 지점에서 멈춘 뒤 천천히 되돌려요."], caution: "반동을 쓰거나 허리를 과하게 꺾지 마세요." },
+};
+
 const DEFAULT_LOADS: Record<string, number> = {
   벤치프레스: 40, 숄더프레스: 20, 랫풀다운: 40, "시티드 로우": 35,
   레그프레스: 80, 레그익스텐션: 25, 레그컬: 25,
+  "체스트 플라이": 25, "사이드 레터럴 레이즈": 5, "페이스 풀": 20,
+  "힙 어브덕션": 30, "카프 레이즈": 40,
 };
 
 const DAILY = [
@@ -101,6 +133,10 @@ export default function Home() {
   const [freezePasses, setFreezePasses] = useState(1);
   const [activeDates, setActiveDates] = useState<string[]>([daysAgo(3), daysAgo(2), daysAgo(1)]);
   const [dailyOpen, setDailyOpen] = useState(false);
+  const [selectedGuide, setSelectedGuide] = useState<string | null>(null);
+  const [hour, setHour] = useState(9);
+  const [bodyStats, setBodyStats] = useState<BodyStat[]>([]);
+  const [bodyForm, setBodyForm] = useState({ weight: "71.8", muscle: "30.0", bodyFat: "22.0" });
   const [hydrated, setHydrated] = useState(false);
 
   const today = dateKey();
@@ -122,6 +158,7 @@ export default function Home() {
         setStreak(parsed.streak ?? 3);
         setFreezePasses(parsed.freezePasses ?? 1);
         setActiveDates(parsed.activeDates?.length ? parsed.activeDates : [daysAgo(3), daysAgo(2), daysAgo(1)]);
+        setBodyStats(parsed.bodyStats ?? []);
 
         const dates: string[] = parsed.activeDates ?? [];
         const last = [...dates].sort().at(-1);
@@ -135,13 +172,19 @@ export default function Home() {
       } catch { /* Keep safe defaults. */ }
     }
     if (localStorage.getItem("pace50-inspiration-date") !== today) setDailyOpen(true);
+    setHour(new Date().getHours());
     setHydrated(true);
   }, [today]);
 
   useEffect(() => {
+    const timer = window.setInterval(() => setHour(new Date().getHours()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ day, weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates }));
-  }, [day, weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, hydrated]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ day, weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats }));
+  }, [day, weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, hydrated]);
 
   const stageIndex = stageForDay(day);
   const currentWeight = weights.at(-1)?.weight ?? 74;
@@ -152,6 +195,7 @@ export default function Home() {
   const routineKind = cycleDay === 1 || cycleDay === 4 ? "push" : cycleDay === 2 || cycleDay === 5 ? "pull" : "legs";
   const routineLabel = routineKind === "push" ? "가슴 / 어깨" : routineKind === "pull" ? "등 / 코어" : "하체";
   const exercises = painMode ? ROUTINES.pain : ROUTINES[routineKind];
+  const optionalExercises = painMode ? OPTIONAL.pain : OPTIONAL[routineKind];
   const cardio: Exercise[] = painMode
     ? [{ name: "좌식 사이클", detail: "20분 · 통증 없는 강도" }]
     : [{ name: "천국의 계단", detail: "15분" }, { name: "런닝머신 걷기", detail: "15분" }];
@@ -178,6 +222,16 @@ export default function Home() {
     const history = loadHistory.filter((item) => item.name === name).sort((a, b) => a.day - b.day);
     return { name, first: history.at(0)?.kg, latest: history.at(-1)?.kg, count: history.length };
   }).filter((item) => item.count > 0);
+
+  const mascot = hour < 12
+    ? { state: "morning", label: "오전 코치", message: "좋은 아침! 체중만 먼저 기록하면 오늘 불꽃은 금방 지킬 수 있어요." }
+    : hour < 19
+      ? { state: "afternoon", label: "오후 코치", message: "아직 충분해요. 운동 한 세트만 시작하면 흐름이 다시 붙어요!" }
+      : hour < 22
+        ? { state: "night", label: "저녁 코치", message: "오늘이 얼마 안 남았어요. 딱 하나만 체크하고 편하게 쉬어요." }
+        : { state: "night urgent", label: "자정 임박", message: `제발… 자정 전에 하나만 기록해 주세요. 연속 ${streak}일을 잃을 순 없어요!` };
+  const guide = selectedGuide ? EXERCISE_GUIDES[selectedGuide] : null;
+  const bodyBmi = Number(bodyForm.weight) > 0 ? Number(bodyForm.weight) / (1.72 * 1.72) : 0;
 
   function markToday() {
     if (todayComplete) return;
@@ -236,6 +290,21 @@ export default function Home() {
     }
   }
 
+  function saveBodyStat(event: FormEvent) {
+    event.preventDefault();
+    const weight = Number(bodyForm.weight);
+    const muscle = Number(bodyForm.muscle);
+    const bodyFat = Number(bodyForm.bodyFat);
+    if (weight < 40 || weight > 150 || muscle < 10 || muscle > 80 || bodyFat < 3 || bodyFat > 60) {
+      setModal({ persona: "T", eyebrow: "주간 측정 확인", title: "수치를 다시 확인해 주세요", body: "체중 40—150kg, 근육량 10—80kg, 체지방률 3—60% 범위로 입력해 주세요." });
+      return;
+    }
+    const entry: BodyStat = { date: today, day, weight, muscle, bodyFat, bmi: weight / (1.72 * 1.72) };
+    setBodyStats((items) => [...items.filter((item) => item.date !== today), entry].sort((a, b) => a.date.localeCompare(b.date)));
+    markToday();
+    openCoach("주간 체성분 기록 완료", `BMI ${entry.bmi.toFixed(1)}, 근육량 ${muscle.toFixed(1)}kg, 체지방률 ${bodyFat.toFixed(1)}%를 저장했습니다. 주간 간격의 같은 조건 측정이 변화 확인에 유리합니다.`, "이번 주의 몸을 있는 그대로 기록했어요. 숫자는 평가가 아니라 다음 선택을 위한 지도예요.");
+  }
+
   return (
     <main className={travelMode ? "app travel-on" : "app"}>
       {travelMode && <div className="travel-banner"><span>여행 모드 · 오늘의 목표는 유지</span><strong>한 끼에 즐거움 하나</strong></div>}
@@ -262,11 +331,12 @@ export default function Home() {
           </section>
 
           <section className={todayComplete ? "streak-panel safe" : "streak-panel"} id="streak">
-            <div className="streak-flame">🔥</div>
+            <div className={`mascot-art ${mascot.state}`} role="img" aria-label={`${mascot.label} 호랑이 헬스 코치`} />
             <div className="streak-copy">
-              <p>연속 기록</p>
+              <p>🔥 {mascot.label} · 연속 기록</p>
               <h2>{todayComplete ? `오늘도 지켰어요. ${streak}일 연속!` : `오늘 기록하지 않으면 연속 ${streak}일을 잃게 돼요.`}</h2>
-              <span>{todayComplete ? "작은 행동 하나가 오늘의 불꽃을 지켰습니다." : "체중 기록이나 운동 한 세트만 완료해도 유지됩니다."}</span>
+              <span className="mascot-message">“{todayComplete ? "역시 해낼 줄 알았어요. 내일도 이 불꽃 그대로 만나요!" : mascot.message}”</span>
+              <small>{todayComplete ? "작은 행동 하나가 오늘의 불꽃을 지켰습니다." : "체중 기록이나 운동 한 세트만 완료해도 유지됩니다."}</small>
             </div>
             <div className="week-dots">{weekly.map((item) => <div key={item.key} className={item.done ? "done" : item.key === today ? "today" : ""}><i>{item.done ? "✓" : ""}</i><span>{item.label}</span></div>)}</div>
             <div className="streak-side"><span>🧊 보호권 {freezePasses}개</span><button onClick={() => { setTab("today"); document.getElementById("weight")?.focus(); }}>{todayComplete ? "연속 기록 안전" : "체중 기록으로 지키기"}</button></div>
@@ -294,7 +364,15 @@ export default function Home() {
           <div className="page-title-row"><div><p className="kicker">WEEKLY 3-SPLIT · 6 DAYS</p><h1>오늘의 60분</h1><p>이전 중량을 그대로 불러옵니다. ±5kg로 조절하고 완료하면 자동 저장돼요.</p></div><div className="workout-day"><span>CYCLE</span><strong>{cycleDay}</strong><small>/ 6</small></div></div>
           <div className="routine-head"><div><span>{painMode ? "PAIN-SAFE ROUTINE" : `DAY ${cycleDay}`}</span><h2>{painMode ? "무릎 부담 없는 루틴" : routineLabel}</h2></div><button className={painMode ? "pain-button active" : "pain-button"} onClick={() => setPainMode((v) => !v)}><span>＋</span>{painMode ? "통증 모드 끄기" : "무릎 통증"}</button></div>
           {painMode && <div className="pain-notice"><b>체중이 실리는 동작을 뺐어요.</b><span>앉아서 하는 기구와 코어 위주로 편안하게 진행하세요.</span></div>}
-          <div className="routine-list"><p className="list-title"><span>STRENGTH</span><b>{exercises.length}개 동작</b></p>{exercises.map((exercise, index) => { const key = `${day}-${painMode ? "pain" : "normal"}-${exercise.name}`; return <ExerciseRow key={exercise.name} index={index + 1} exercise={exercise} checked={Boolean(checks[key])} kg={exercise.weighted ? currentLoad(exercise.name) : null} onAdjust={(delta) => adjustLoad(exercise.name, delta)} onToggle={() => toggleCheck(exercise)} />; })}<p className="list-title cardio-title"><span>CARDIO</span><b>{painMode ? "저충격" : "30분"}</b></p>{cardio.map((exercise, index) => { const key = `${day}-${painMode ? "pain" : "normal"}-${exercise.name}`; return <ExerciseRow key={exercise.name} index={exercises.length + index + 1} exercise={exercise} checked={Boolean(checks[key])} kg={null} onAdjust={() => {}} onToggle={() => toggleCheck(exercise)} />; })}</div>
+          <div className="routine-list">
+            <p className="list-title"><span>STRENGTH</span><b>{exercises.length}개 필수 동작 · 동작명을 누르면 자세 보기</b></p>
+            {exercises.map((exercise, index) => { const key = `${day}-${painMode ? "pain" : "normal"}-${exercise.name}`; return <ExerciseRow key={exercise.name} index={index + 1} exercise={exercise} checked={Boolean(checks[key])} kg={exercise.weighted ? currentLoad(exercise.name) : null} onAdjust={(delta) => adjustLoad(exercise.name, delta)} onToggle={() => toggleCheck(exercise)} onGuide={EXERCISE_GUIDES[exercise.name] ? () => setSelectedGuide(exercise.name) : undefined} />; })}
+            <p className="list-title cardio-title"><span>CARDIO</span><b>{painMode ? "저충격" : "30분"}</b></p>
+            {cardio.map((exercise, index) => { const key = `${day}-${painMode ? "pain" : "normal"}-${exercise.name}`; return <ExerciseRow key={exercise.name} index={exercises.length + index + 1} exercise={exercise} checked={Boolean(checks[key])} kg={null} onAdjust={() => {}} onToggle={() => toggleCheck(exercise)} />; })}
+            <p className="list-title optional-title"><span>OPTIONAL · 선택 운동</span><b>여유가 있는 날만 추가</b></p>
+            <div className="optional-note">필수 운동을 끝낸 뒤 1—2개만 골라 가볍게 수행하세요.</div>
+            {optionalExercises.map((exercise, index) => { const key = `${day}-${painMode ? "pain" : "normal"}-${exercise.name}`; return <ExerciseRow key={exercise.name} index={index + 1} exercise={exercise} checked={Boolean(checks[key])} kg={exercise.weighted ? currentLoad(exercise.name) : null} onAdjust={(delta) => adjustLoad(exercise.name, delta)} onToggle={() => toggleCheck(exercise)} optional />; })}
+          </div>
           <div className="workout-footer"><div><strong>{completed}</strong><span>/ {allItems.length} 완료</span></div><div className="completion-track"><i style={{ width: `${completed / allItems.length * 100}%` }} /></div><button disabled={completed !== allItems.length} onClick={() => openCoach("운동 완료", "오늘 계획한 근력과 유산소를 모두 수행했습니다.", "오늘 60분을 끝냈어요. 아주 좋은 반복이에요.")}>{completed === allItems.length ? "운동 완료 · 코칭 받기" : `${allItems.length - completed}개 더 체크하세요`}</button></div>
         </section>}
 
@@ -303,23 +381,41 @@ export default function Home() {
           <div className="record-grid"><article className="record-table card"><div className="card-heading compact"><div><p className="section-label">WEIGHT LOG</p><h2>체중 기록</h2></div><span className="stage-pill">{weights.length}회</span></div><div className="table-head"><span>일차</span><span>체중</span><span>시작 대비</span></div>{[...weights].reverse().map((entry) => <div className="table-row" key={entry.day}><span>DAY {entry.day}</span><strong>{entry.weight.toFixed(1)} kg</strong><em>{(entry.weight - 74).toFixed(1)} kg</em></div>)}</article>
             <article className="rules-card card"><p className="section-label">STREAK SYSTEM</p><h2>연속성을 만드는 장치</h2><ol><li><span>🔥</span><div><b>{streak}일 연속 기록</b><p>하루 하나의 행동이면 불꽃이 이어집니다.</p></div></li><li><span>🧊</span><div><b>보호권 {freezePasses}개</b><p>딱 하루 놓치면 자동으로 연속 기록을 보호합니다.</p></div></li><li><span>✓</span><div><b>작게 시작하기</b><p>체중 기록이나 운동 한 세트만 해도 오늘은 성공.</p></div></li></ol></article>
             <article className="load-progress card"><div className="card-heading compact"><div><p className="section-label">STRENGTH PROGRESS</p><h2>들어 올린 무게의 성장</h2></div><span className="stage-pill">{loadHistory.length}세트 기록</span></div>{progressRows.length === 0 ? <div className="empty-progress"><strong>첫 중량을 기다리고 있어요.</strong><span>운동 탭에서 중량을 맞춘 뒤 완료 체크하면 여기에 성장 기록이 쌓입니다.</span></div> : <div className="load-table"><div className="load-head"><span>운동</span><span>첫 기록</span><span>최근</span><span>증가</span></div>{progressRows.map((row) => <div className="load-row" key={row.name}><b>{row.name}</b><span>{row.first}kg</span><strong>{row.latest}kg</strong><em>+{((row.latest ?? 0) - (row.first ?? 0)).toFixed(0)}kg</em></div>)}</div>}</article>
+            <article className="body-composition card">
+              <div className="card-heading compact"><div><p className="section-label">WEEKLY BODY CHECK</p><h2>주 1회 체성분 기록</h2></div><span className="stage-pill">BMI 자동 계산</span></div>
+              <div className="body-layout">
+                <form className="body-form" onSubmit={saveBodyStat}>
+                  <label><span>체중</span><div><input inputMode="decimal" value={bodyForm.weight} onChange={(e) => setBodyForm((v) => ({ ...v, weight: e.target.value }))} /><b>kg</b></div></label>
+                  <label><span>근육량</span><div><input inputMode="decimal" value={bodyForm.muscle} onChange={(e) => setBodyForm((v) => ({ ...v, muscle: e.target.value }))} /><b>kg</b></div></label>
+                  <label><span>체지방률</span><div><input inputMode="decimal" value={bodyForm.bodyFat} onChange={(e) => setBodyForm((v) => ({ ...v, bodyFat: e.target.value }))} /><b>%</b></div></label>
+                  <div className="bmi-preview"><span>172cm 기준 BMI</span><strong>{Number.isFinite(bodyBmi) ? bodyBmi.toFixed(1) : "—"}</strong><small>체중으로 자동 계산</small></div>
+                  <button type="submit">이번 주 기록 저장 <span>→</span></button>
+                </form>
+                <div className="body-history">
+                  <div className="body-head"><span>측정일</span><span>체중</span><span>근육</span><span>체지방</span><span>BMI</span></div>
+                  {bodyStats.length === 0 ? <div className="body-empty">아직 주간 기록이 없어요. 같은 요일·비슷한 조건으로 측정해 보세요.</div> : [...bodyStats].reverse().map((entry) => <div className="body-row" key={entry.date}><b>{entry.date.slice(5).replace("-", ".")}</b><span>{entry.weight.toFixed(1)}kg</span><span>{entry.muscle.toFixed(1)}kg</span><span>{entry.bodyFat.toFixed(1)}%</span><strong>{entry.bmi.toFixed(1)}</strong></div>)}
+                </div>
+              </div>
+            </article>
           </div>
         </section>}
       </section>
 
       <nav className="bottom-nav" aria-label="주 메뉴"><button className={tab === "today" ? "active" : ""} onClick={() => setTab("today")}><span className="nav-icon">●</span><b>오늘</b></button><button className={tab === "workout" ? "active" : ""} onClick={() => setTab("workout")}><span className="nav-icon">＋</span><b>운동</b>{completed > 0 && <i>{completed}</i>}</button><button className={tab === "records" ? "active" : ""} onClick={() => setTab("records")}><span className="nav-icon">▥</span><b>기록</b></button></nav>
 
-      {dailyOpen && <div className="daily-backdrop"><section className="daily-card" style={{ backgroundImage: `linear-gradient(90deg, rgba(10,17,31,.94), rgba(10,17,31,.18)), url(${daily.image})` }} role="dialog" aria-modal="true" aria-labelledby="daily-title"><div className="daily-streak">🔥 {streak}일 연속</div><div className="daily-content"><p>DAY {day} · 오늘의 한 문장</p><h2 id="daily-title">{daily.quote}</h2><span>{daily.cue}</span><button onClick={closeDaily}>오늘도 이어가기 <b>→</b></button><small>오늘 기록하지 않으면 연속 {streak}일을 잃게 돼요.</small></div></section></div>}
+      {guide && selectedGuide && <div className="guide-backdrop" onMouseDown={() => setSelectedGuide(null)}><section className="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title" onMouseDown={(e) => e.stopPropagation()}><button className="guide-close" onClick={() => setSelectedGuide(null)} aria-label="자세 가이드 닫기">×</button><div className="guide-heading"><div><p>FORM GUIDE · {guide.focus}</p><h2 id="guide-title">{selectedGuide} 올바른 순서</h2></div><span>3 STEP</span></div><img src={guide.image} alt={`${selectedGuide} 시작, 동작, 마무리 자세 순서`} /><ol>{guide.steps.map((step, index) => <li key={step}><b>0{index + 1}</b><span>{step}</span></li>)}</ol><div className="guide-caution"><strong>!</strong><span><b>안전 체크</b>{guide.caution}</span></div><button className="guide-confirm" onClick={() => setSelectedGuide(null)}>자세 확인했어요</button></section></div>}
+
+      {dailyOpen && <div className="daily-backdrop"><section className="daily-card" style={{ backgroundImage: `linear-gradient(90deg, rgba(10,17,31,.94), rgba(10,17,31,.18)), url(${daily.image})` }} role="dialog" aria-modal="true" aria-labelledby="daily-title"><div className="daily-top"><div className="daily-streak">🔥 {streak}일 연속</div><div className={`daily-mascot ${mascot.state}`} role="img" aria-label={`${mascot.label} 호랑이 코치`} /></div><div className="daily-content"><p>DAY {day} · {mascot.label}의 한 문장</p><h2 id="daily-title">{daily.quote}</h2><span>{todayComplete ? "오늘의 불꽃은 안전해요. 내일도 다시 만나요!" : mascot.message}</span><button onClick={closeDaily}>오늘도 이어가기 <b>→</b></button><small>오늘 기록하지 않으면 연속 {streak}일을 잃게 돼요.</small></div></section></div>}
 
       {modal && <div className="modal-backdrop" role="presentation" onMouseDown={() => setModal(null)}><section className={`coach-modal modal-${modal.persona.toLowerCase()}`} role="dialog" aria-modal="true" aria-labelledby="coach-title" onMouseDown={(e) => e.stopPropagation()}><button className="modal-close" onClick={() => setModal(null)} aria-label="코칭 닫기">×</button><div className="modal-persona">{modal.persona}</div><p>{modal.eyebrow}</p><h2 id="coach-title">{modal.title}</h2><blockquote>{modal.body}</blockquote><button className="modal-confirm" onClick={() => setModal(null)}>좋아요, 그렇게 할게요</button></section></div>}
     </main>
   );
 }
 
-function ExerciseRow({ index, exercise, checked, kg, onAdjust, onToggle }: { index: number; exercise: Exercise; checked: boolean; kg: number | null; onAdjust: (delta: number) => void; onToggle: () => void }) {
-  return <div className={checked ? "exercise-row checked" : "exercise-row"}>
+function ExerciseRow({ index, exercise, checked, kg, onAdjust, onToggle, onGuide, optional = false }: { index: number; exercise: Exercise; checked: boolean; kg: number | null; onAdjust: (delta: number) => void; onToggle: () => void; onGuide?: () => void; optional?: boolean }) {
+  return <div className={`${checked ? "exercise-row checked" : "exercise-row"}${optional ? " optional" : ""}`}>
     <span className="exercise-index">{String(index).padStart(2, "0")}</span>
-    <span className="exercise-copy"><b>{exercise.name}</b><small>{exercise.detail}</small>{kg !== null && <em>완료하면 {kg}kg로 기록</em>}</span>
+    <span className="exercise-copy"><button className={onGuide ? "exercise-name has-guide" : "exercise-name"} onClick={onGuide} disabled={!onGuide}>{exercise.name}{onGuide && <i>자세 보기 →</i>}</button><small>{exercise.detail}</small>{kg !== null && <em>완료하면 {kg}kg로 기록</em>}</span>
     {kg !== null && <div className="load-stepper" aria-label={`${exercise.name} 중량`}><button onClick={() => onAdjust(-5)} aria-label="5kg 줄이기">−</button><strong>{kg}<small>kg</small></strong><button onClick={() => onAdjust(5)} aria-label="5kg 늘리기">＋</button></div>}
     <button className="check-circle" onClick={onToggle} aria-pressed={checked} aria-label={`${exercise.name} 완료`}>{checked ? "✓" : ""}</button>
   </div>;
