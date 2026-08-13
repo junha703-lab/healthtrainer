@@ -216,6 +216,7 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
   const [heightCm, setHeightCm] = useState<number | null>(null);
   const [profileSetupCompleted, setProfileSetupCompleted] = useState(true);
+  const [profileSetupVersion, setProfileSetupVersion] = useState(0);
   const [profileSetupOpen, setProfileSetupOpen] = useState(false);
   const [profileForm, setProfileForm] = useState({ weight: "", height: "" });
   const [profileError, setProfileError] = useState("");
@@ -246,8 +247,11 @@ export default function Home() {
         setBodyStats((parsed.bodyStats ?? []).filter((entry: BodyStat) => entry.date >= PLAN_START && entry.date <= today).map((entry: BodyStat) => ({ ...entry, day: planDayForDate(entry.date) })));
         setFoodChats(parsed.foodChats ?? []);
         setHeightCm(Number(parsed.heightCm) >= 120 && Number(parsed.heightCm) <= 230 ? Number(parsed.heightCm) : null);
-        const setupComplete = typeof parsed.profileSetupCompleted === "boolean" ? parsed.profileSetupCompleted : true;
+        const hasSavedProfile = Number(parsed.heightCm) >= 120 && Number(parsed.heightCm) <= 230 && loadedWeights.length > 0;
+        const setupVersion = Number(parsed.profileSetupVersion) || 0;
+        const setupComplete = setupVersion >= 1 || hasSavedProfile;
         setProfileSetupCompleted(setupComplete);
+        setProfileSetupVersion(setupComplete ? 1 : 0);
         setProfileSetupOpen(!setupComplete);
   }
 
@@ -290,11 +294,11 @@ export default function Home() {
   useEffect(() => {
     if (!hydrated) return;
     if (!session) return;
-    const state = { weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats, heightCm, profileSetupCompleted };
+    const state = { weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats, heightCm, profileSetupCompleted, profileSetupVersion };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     const timer = window.setTimeout(() => saveAccount(session.token, state).catch(() => undefined), 500);
     return () => window.clearTimeout(timer);
-  }, [weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats, heightCm, profileSetupCompleted, hydrated, session]);
+  }, [weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats, heightCm, profileSetupCompleted, profileSetupVersion, hydrated, session]);
 
   const stageIndex = stageForDay(day);
   const availableWeights = weights.filter((entry) => entry.day <= accessDay);
@@ -400,6 +404,7 @@ export default function Home() {
       markDate(today);
     }
     setProfileSetupCompleted(true);
+    setProfileSetupVersion(1);
     setProfileSetupOpen(false);
     setProfileError("");
     setDailyOpen(true);
@@ -521,6 +526,7 @@ export default function Home() {
       hydrateState(result.state ?? {});
       if (result.created) {
         setProfileSetupCompleted(false);
+        setProfileSetupVersion(0);
         setProfileSetupOpen(true);
         setProfileForm({ weight: "", height: "" });
         setDailyOpen(false);
@@ -535,7 +541,7 @@ export default function Home() {
     if (session) await logoutAccount(session.token).catch(() => undefined);
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(STORAGE_KEY);
-    setSession(null); setWeights([]); setWeightInput(""); setChecks({}); setLoadHistory([]); setLoadInputs({}); setActiveDates([]); setBodyStats([]); setBodyForm({ weight: "", muscle: "", bodyFat: "" }); setFoodChats([]); setHeightCm(null); setProfileSetupCompleted(true); setProfileSetupOpen(false); setProfileForm({ weight: "", height: "" }); setDailyOpen(false); setAuthForm({ name: "", pin: "" });
+    setSession(null); setWeights([]); setWeightInput(""); setChecks({}); setLoadHistory([]); setLoadInputs({}); setActiveDates([]); setBodyStats([]); setBodyForm({ weight: "", muscle: "", bodyFat: "" }); setFoodChats([]); setHeightCm(null); setProfileSetupCompleted(true); setProfileSetupVersion(0); setProfileSetupOpen(false); setProfileForm({ weight: "", height: "" }); setDailyOpen(false); setAuthForm({ name: "", pin: "" });
   }
 
   if (!authReady) return <main className="auth-loading"><div className="auth-loader" /><span>자기관리 공간을 준비하고 있어요</span></main>;
