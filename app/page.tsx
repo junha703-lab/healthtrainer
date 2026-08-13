@@ -1,7 +1,7 @@
 "use client";
 
 import { CSSProperties, FormEvent, useEffect, useMemo, useState } from "react";
-import { loadAccount, loginAccount, logoutAccount, saveAccount } from "./supabase-api";
+import { AdminAccountSummary, deleteAdminAccount, listAdminAccounts, loadAccount, loginAccount, logoutAccount, saveAccount } from "./supabase-api";
 
 type Tab = "today" | "workout" | "records" | "food";
 type Persona = "T" | "F";
@@ -241,7 +241,7 @@ export default function Home() {
   const [pastForm, setPastForm] = useState({ date: dateKey(), weight: "", muscle: "", bodyFat: "" });
   const [foodQuery, setFoodQuery] = useState("");
   const [foodChats, setFoodChats] = useState<FoodChat[]>([]);
-  const [session, setSession] = useState<{ token: string; name: string } | null>(null);
+  const [session, setSession] = useState<{ token: string; name: string; isAdmin: boolean } | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [authForm, setAuthForm] = useState({ name: "", pin: "" });
   const [authBusy, setAuthBusy] = useState(false);
@@ -255,6 +255,11 @@ export default function Home() {
   const [profileError, setProfileError] = useState("");
   const [celebratedDates, setCelebratedDates] = useState<string[]>([]);
   const [celebrationOpen, setCelebrationOpen] = useState(false);
+  const [adminAccounts, setAdminAccounts] = useState<AdminAccountSummary[]>([]);
+  const [adminBusy, setAdminBusy] = useState(false);
+  const [adminError, setAdminError] = useState("");
+  const [adminConfirm, setAdminConfirm] = useState<AdminAccountSummary | null>(null);
+  const [adminConfirmName, setAdminConfirmName] = useState("");
 
   const today = accessDate;
   const availableEnd = today < PLAN_START ? PLAN_START : today > PLAN_TARGET ? PLAN_TARGET : today;
@@ -298,10 +303,10 @@ export default function Home() {
     const savedSession = localStorage.getItem(SESSION_KEY);
     if (savedSession) {
       try {
-        const parsedSession = JSON.parse(savedSession) as { token: string; name: string };
+        const parsedSession = JSON.parse(savedSession) as { token: string; name: string; isAdmin?: boolean };
         loadAccount(parsedSession.token).then((result) => {
           if (result.ok && result.name) {
-            setSession({ token: parsedSession.token, name: result.name });
+            setSession({ token: parsedSession.token, name: result.name, isAdmin: Boolean(result.isAdmin) });
             hydrateState(result.state ?? {});
           } else localStorage.removeItem(SESSION_KEY);
         }).catch(() => localStorage.removeItem(SESSION_KEY)).finally(() => { setHydrated(true); setAuthReady(true); });
@@ -405,6 +410,11 @@ export default function Home() {
     setCelebratedDates((dates) => [...new Set([...dates, today])]);
     setCelebrationOpen(true);
   }, [celebratedDates, celebrationOpen, completionStreak, dailyOpen, hydrated, modal, profileSetupOpen, session, today, todayComplete]);
+
+  useEffect(() => {
+    if (!session?.isAdmin) return;
+    refreshAdminAccounts();
+  }, [session?.isAdmin]);
 
   const progressRows = Object.keys(DEFAULT_LOADS).map((name) => {
     const history = loadHistory.filter((item) => item.name === name).sort((a, b) => a.day - b.day);
@@ -568,11 +578,15 @@ export default function Home() {
     try {
       const result = await loginAccount(name, authForm.pin);
       if (!result.ok || !result.token || !result.name) { setAuthError(result.error ?? "이름 또는 접속번호를 확인해 주세요."); return; }
-      const nextSession = { token: result.token, name: result.name };
+      const nextSession = { token: result.token, name: result.name, isAdmin: Boolean(result.isAdmin) };
       setSession(nextSession);
       localStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
       hydrateState(result.state ?? {});
-      if (result.created) {
+      if (result.isAdmin) {
+        setProfileSetupCompleted(true);
+        setProfileSetupOpen(false);
+        setDailyOpen(false);
+      } else if (result.created) {
         setProfileSetupCompleted(false);
         setProfileSetupVersion(0);
         setProfileSetupOpen(true);
@@ -585,6 +599,35 @@ export default function Home() {
     finally { setAuthBusy(false); }
   }
 
+  async function refreshAdminAccounts() {
+    if (!session?.isAdmin) return;
+    setAdminBusy(true); setAdminError("");
+    try {
+      const result = await listAdminAccounts(session.token);
+      if (!result.ok) { setAdminError(result.error ?? "계정 목록을 불러오지 못했습니다."); return; }
+      setAdminAccounts(result.accounts ?? []);
+    } catch (error) { setAdminError(error instanceof Error ? error.message : "계정 목록을 불러오지 못했습니다."); }
+    finally { setAdminBusy(false); }
+  }
+
+  async function removeAccount(account: AdminAccountSummary) {
+    if (!session?.isAdmin || account.isAdmin) return;
+    setAdminConfirm(account);
+    setAdminConfirmName("");
+  }
+
+  async function confirmRemoveAccount() {
+    if (!session?.isAdmin || !adminConfirm || adminConfirmName !== adminConfirm.name) return;
+    setAdminBusy(true); setAdminError("");
+    try {
+      const result = await deleteAdminAccount(session.token, adminConfirm.id);
+      if (!result.ok) { setAdminError(result.error ?? "계정을 삭제하지 못했습니다."); return; }
+      setAdminAccounts((accounts) => accounts.filter((item) => item.id !== adminConfirm.id));
+      setAdminConfirm(null); setAdminConfirmName("");
+    } catch (error) { setAdminError(error instanceof Error ? error.message : "계정을 삭제하지 못했습니다."); }
+    finally { setAdminBusy(false); }
+  }
+
   async function signOut() {
     if (session) await logoutAccount(session.token).catch(() => undefined);
     localStorage.removeItem(SESSION_KEY);
@@ -595,6 +638,8 @@ export default function Home() {
   if (!authReady) return <main className="auth-loading"><div className="auth-loader" /><span>자기관리 공간을 준비하고 있어요</span></main>;
 
   if (!session) return <main className="login-page"><section className="login-visual"><div className="login-brand"><span>50</span><b>PACE MAKER</b></div><div className="login-copy"><p>50일, 나를 바꾸는 가장 현실적인 기록</p><h1>자기관리의<br /><em>시작</em></h1><span>체중 · 운동 · 식사를 한곳에서 이어가세요.</span></div><div className="login-stats"><div><b>50</b><span>DAY PLAN</span></div><div><b>4</b><span>MILESTONES</span></div><div><b>1</b><span>DAILY PROMISE</span></div></div></section><section className="login-panel"><div className="login-form-wrap"><p className="section-label">WELCOME TO YOUR PACE</p><h2>내 기록 시작하기</h2><p className="login-help">처음 입력한 이름과 숫자 4자리가 내 접속 정보가 됩니다. 다음부터 같은 정보로 로그인하세요.</p><form onSubmit={submitLogin}><label htmlFor="account-name">이름</label><input id="account-name" autoComplete="username" maxLength={20} value={authForm.name} onChange={(e) => setAuthForm((value) => ({ ...value, name: e.target.value }))} placeholder="사용할 이름" /><label htmlFor="account-pin">초기 접속번호</label><input id="account-pin" type="password" inputMode="numeric" autoComplete="current-password" maxLength={4} value={authForm.pin} onChange={(e) => setAuthForm((value) => ({ ...value, pin: e.target.value.replace(/\D/g, "").slice(0, 4) }))} placeholder="숫자 4자리" /><div className="pin-preview" aria-hidden="true">{[0,1,2,3].map((index) => <i key={index} className={authForm.pin.length > index ? "filled" : ""} />)}</div>{authError && <p className="auth-error" role="alert">{authError}</p>}<button type="submit" disabled={authBusy}>{authBusy ? "확인 중…" : "시작하기"}<span>→</span></button></form><small>접속번호는 암호화되어 저장됩니다. 공용 기기에서는 사용 후 로그아웃하세요.</small></div></section></main>;
+
+  if (session.isAdmin) return <><AdminDashboard sessionName={session.name} accounts={adminAccounts} busy={adminBusy} error={adminError} onRefresh={refreshAdminAccounts} onDelete={removeAccount} onSignOut={signOut} />{adminConfirm && <div className="admin-confirm-backdrop"><section className="admin-confirm" role="dialog" aria-modal="true" aria-labelledby="admin-delete-title"><span>!</span><p>DELETE ACCOUNT</p><h2 id="admin-delete-title">{adminConfirm.name} 계정을<br />삭제할까요?</h2><div>체중·운동·체성분 기록과 로그인 세션이 모두 삭제되며 되돌릴 수 없습니다.</div><label><span>확인을 위해 계정 이름 입력</span><input autoFocus value={adminConfirmName} onChange={(event) => setAdminConfirmName(event.target.value)} placeholder={adminConfirm.name} /></label><div className="admin-confirm-actions"><button onClick={() => { setAdminConfirm(null); setAdminConfirmName(""); }} disabled={adminBusy}>취소</button><button className="danger" onClick={confirmRemoveAccount} disabled={adminBusy || adminConfirmName !== adminConfirm.name}>{adminBusy ? "삭제 중…" : "계정과 기록 삭제"}</button></div></section></div>}</>;
 
   return (
     <main className={travelMode ? "app travel-on" : "app"}>
@@ -734,6 +779,35 @@ export default function Home() {
       {modal && <div className="modal-backdrop" role="presentation" onMouseDown={() => setModal(null)}><section className={`coach-modal modal-${modal.persona.toLowerCase()}`} role="dialog" aria-modal="true" aria-labelledby="coach-title" onMouseDown={(e) => e.stopPropagation()}><button className="modal-close" onClick={() => setModal(null)} aria-label="코칭 닫기">×</button><div className="modal-persona">{modal.persona}</div><p>{modal.eyebrow}</p><h2 id="coach-title">{modal.title}</h2><blockquote>{modal.body}</blockquote><button className="modal-confirm" onClick={() => setModal(null)}>좋아요, 그렇게 할게요</button></section></div>}
     </main>
   );
+}
+
+function AdminDashboard({ sessionName, accounts, busy, error, onRefresh, onDelete, onSignOut }: { sessionName: string; accounts: AdminAccountSummary[]; busy: boolean; error: string; onRefresh: () => void; onDelete: (account: AdminAccountSummary) => void; onSignOut: () => void }) {
+  const members = accounts.filter((account) => !account.isAdmin);
+  const activeThisWeek = members.filter((account) => Date.now() - new Date(account.updatedAt).getTime() <= 7 * 86_400_000).length;
+  const profilesReady = members.filter((account) => account.profileReady).length;
+  const totalWeightRecords = members.reduce((sum, account) => sum + account.weightCount, 0);
+  const formatDate = (value: string) => new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", year: "2-digit", month: "2-digit", day: "2-digit" }).format(new Date(value));
+
+  return <main className="admin-page">
+    <header className="admin-topbar"><div className="admin-brand"><span>50</span><div><b>PACE MAKER</b><small>ADMIN CONTROL</small></div></div><div><span>{sessionName} 계정</span><button onClick={onSignOut}>로그아웃</button></div></header>
+    <section className="admin-content">
+      <div className="admin-title"><div><p>ACCOUNT OVERVIEW</p><h1>사용자 관리</h1><span>가입자 활동과 핵심 건강 기록을 한눈에 확인하세요.</span></div><button onClick={onRefresh} disabled={busy}>{busy ? "불러오는 중…" : "목록 새로고침"}</button></div>
+      <section className="admin-stats"><article><span>전체 사용자</span><strong>{members.length}</strong><small>관리자 제외</small></article><article><span>최근 7일 활동</span><strong>{activeThisWeek}</strong><small>기록 갱신 기준</small></article><article><span>첫 설정 완료</span><strong>{profilesReady}</strong><small>{members.length ? `${Math.round(profilesReady / members.length * 100)}%` : "0%"}</small></article><article><span>체중 기록</span><strong>{totalWeightRecords}</strong><small>전체 누적</small></article></section>
+      {error && <div className="admin-error" role="alert">{error}</div>}
+      <section className="admin-table-card"><div className="admin-table-head"><div><p>MEMBER DIRECTORY</p><h2>계정 목록</h2></div><span>{members.length}명</span></div>
+        <div className="admin-table-labels"><span>사용자</span><span>가입 / 최근 활동</span><span>키</span><span>최근 체중</span><span>기록</span><span>관리</span></div>
+        {members.length === 0 && !busy ? <div className="admin-empty">등록된 일반 사용자 계정이 없습니다.</div> : members.map((account) => <article className="admin-account-row" key={account.id}>
+          <div className="admin-user"><i>{account.name.slice(0, 1)}</i><span><b>{account.name}</b><small>{account.profileReady ? "프로필 설정 완료" : "초기 설정 미완료"}</small></span></div>
+          <div className="admin-dates"><b>{formatDate(account.createdAt)} 가입</b><small>{formatDate(account.updatedAt)} 최근 활동</small></div>
+          <strong>{account.heightCm ? `${account.heightCm}cm` : "—"}</strong>
+          <strong>{account.latestWeight ? `${Number(account.latestWeight).toFixed(1)}kg` : "—"}</strong>
+          <div className="admin-records"><b>체중 {account.weightCount}회</b><small>운동 체크 {account.workoutChecks}개</small></div>
+          <button className="admin-delete" onClick={() => onDelete(account)} disabled={busy}>계정 삭제</button>
+        </article>)}
+      </section>
+      <p className="admin-privacy">비밀번호와 상세 운동·신체 기록은 관리자 화면에 표시하지 않습니다. 계정을 삭제하면 해당 사용자의 모든 저장 기록과 로그인 세션도 함께 삭제됩니다.</p>
+    </section>
+  </main>;
 }
 
 function ExerciseRow({ index, exercise, checked, kg, onAdjust, onToggle, onGuide, optional = false }: { index: number; exercise: Exercise; checked: boolean; kg: number | null; onAdjust: (delta: number) => void; onToggle: () => void; onGuide?: () => void; optional?: boolean }) {

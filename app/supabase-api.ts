@@ -1,4 +1,5 @@
 export type AccountSession = { token: string; name: string; state?: Record<string, unknown> };
+export type AdminAccountSummary = { id: string; name: string; isAdmin: boolean; createdAt: string; updatedAt: string; heightCm: number | null; weightCount: number; latestWeight: number | null; workoutChecks: number; profileReady: boolean };
 
 const SUPABASE_URL = "https://occckuxwchyeuaxprukp.supabase.co";
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "sb_publishable_guRSQxcT3aMDqywoodMGPA_BR_QSW3y";
@@ -14,11 +15,11 @@ async function rpc<T>(name: string, body: Record<string, unknown>): Promise<T> {
 }
 
 export async function loginAccount(name: string, pin: string) {
-  return rpc<{ ok: boolean; token?: string; name?: string; created?: boolean; state?: Record<string, unknown>; error?: string }>("app_login", { p_name: name, p_pin: pin });
+  return rpc<{ ok: boolean; token?: string; name?: string; created?: boolean; isAdmin?: boolean; state?: Record<string, unknown>; error?: string }>("app_login", { p_name: name, p_pin: pin });
 }
 
 export async function loadAccount(token: string) {
-  return rpc<{ ok: boolean; name?: string; state?: Record<string, unknown>; error?: string }>("app_load_state", { p_token: token });
+  return rpc<{ ok: boolean; name?: string; isAdmin?: boolean; state?: Record<string, unknown>; error?: string }>("app_load_state", { p_token: token });
 }
 
 export async function saveAccount(token: string, state: Record<string, unknown>) {
@@ -27,4 +28,12 @@ export async function saveAccount(token: string, state: Record<string, unknown>)
 
 export async function logoutAccount(token: string) {
   return rpc<{ ok: boolean }>("app_logout", { p_token: token });
+}
+
+export async function listAdminAccounts(token: string) {
+  return rpc<{ ok: boolean; accounts?: AdminAccountSummary[]; error?: string }>("app_admin_list_accounts", { p_token: token });
+}
+
+export async function deleteAdminAccount(token: string, accountId: string) {
+  return rpc<{ ok: boolean; deletedName?: string; error?: string }>("app_admin_delete_account", { p_token: token, p_account_id: accountId });
 }
