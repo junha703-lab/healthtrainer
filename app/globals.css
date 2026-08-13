@@ -116,7 +116,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid 
 .defense-actions button:hover { border-color: var(--coral); transform: translateY(-1px); }
 .defense-actions span { grid-row: span 2; width: 28px; height: 28px; border-radius: 50%; background: var(--coral); display: grid; place-items: center; font-size: 12px; font-weight: 900; }
 .defense-actions b { font-size: 11px; }.defense-actions small { color: var(--muted); font-size: 9px; }
-.bottom-nav { position: fixed; z-index: 30; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(520px, calc(100% - 34px)); height: 70px; padding: 8px; display: grid; grid-template-columns: repeat(4, 1fr); background: rgba(23,34,59,.96); box-shadow: 0 16px 38px rgba(23,34,59,.26); backdrop-filter: blur(12px); }
+.bottom-nav { position: fixed; z-index: 30; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(460px, calc(100% - 34px)); height: 70px; padding: 8px; display: grid; grid-template-columns: repeat(3, 1fr); background: rgba(23,34,59,.96); box-shadow: 0 16px 38px rgba(23,34,59,.26); backdrop-filter: blur(12px); }
 .bottom-nav button { border: 0; background: transparent; color: #9ba2b0; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; position: relative; }
 .bottom-nav button.active { background: var(--paper); color: var(--ink); }
 .bottom-nav b { font-size: 11px; }.nav-icon { font-size: 14px; }
