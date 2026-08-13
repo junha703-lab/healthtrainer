@@ -13,7 +13,7 @@ type ExerciseGuide = { image: string; motion: string; focus: string; steps: stri
 type FoodAdvice = { name: string; verdict: string; tone: "good" | "careful" | "limit" | "unknown"; calories: string; serving: string; fact: string; encouragement: string; actions: string[] };
 type FoodChat = { id: number; query: string; advice: FoodAdvice };
 
-const PLAN_START = "2026-08-12";
+const PLAN_START = "2026-08-10";
 const PLAN_TARGET = "2026-09-30";
 
 const INITIAL_WEIGHTS: WeightEntry[] = [
@@ -105,7 +105,7 @@ const DAILY = [
   { image: "/motivation-01.png", quote: "계속하는 사람이 결국 원하는 사람이 된다.", cue: "이번 주의 마지막 점 하나를 채워보세요." },
 ];
 
-const STORAGE_KEY = "pace50-state-v3";
+const STORAGE_KEY = "pace50-state-v4";
 
 const FOOD_LIBRARY: Array<{ aliases: string[]; advice: FoodAdvice }> = [
   { aliases: ["짜장면", "자장면"], advice: { name: "짜장면", verdict: "먹어도 돼요 · 양 조절 필요", tone: "careful", calories: "약 800—950 kcal", serving: "보통 1그릇 · 가게와 조리법에 따라 차이", fact: "면과 춘장 소스가 함께 들어가 탄수화물·나트륨이 높은 한 끼예요. 한 그릇을 다 비우면 오늘 식사 중 가장 큰 열량이 될 가능성이 큽니다.", encouragement: "짜장면 한 끼가 감량을 망치지는 않아요. 오늘은 ‘안 먹기’보다 ‘덜 먹고 만족하기’를 연습해요.", actions: ["면은 70% 정도에서 멈추기", "군만두·볶음밥·달달한 음료는 함께 먹지 않기", "다음 끼니는 굶지 말고 단백질+채소 위주로 평소의 70—80%"] } },
@@ -210,25 +210,28 @@ export default function Home() {
   const dDay = dayGap(today, PLAN_TARGET);
   const viewingToday = selectedDate === today;
   const daily = DAILY[(new Date().getDay() + day) % DAILY.length];
-  const todayComplete = activeDates.includes(today);
+  const recordedWeightDates = useMemo(() => new Set(weights.map((entry) => dateFromPlanDay(entry.day))), [weights]);
+  const todayComplete = recordedWeightDates.has(today);
 
   useEffect(() => {
-    const savedV3 = localStorage.getItem(STORAGE_KEY);
-    const saved = savedV3 ?? localStorage.getItem("pace50-state-v2");
+    const savedCurrent = localStorage.getItem(STORAGE_KEY);
+    const savedPrevious = localStorage.getItem("pace50-state-v3") ?? localStorage.getItem("pace50-state-v2");
+    const saved = savedCurrent ?? savedPrevious;
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         const loadedWeights: WeightEntry[] = parsed.weights?.length ? parsed.weights : INITIAL_WEIGHTS;
-        setWeights(savedV3 ? loadedWeights : loadedWeights.filter((entry) => entry.day <= planDayForDate(today)));
+        const shiftedWeights = savedCurrent ? loadedWeights : loadedWeights.map((entry) => ({ ...entry, day: entry.day + 2 }));
+        setWeights(shiftedWeights.filter((entry) => entry.day <= planDayForDate(today)));
         setTravelMode(Boolean(parsed.travelMode));
         setChecks(parsed.checks ?? {});
         setNextPersona(parsed.nextPersona ?? "T");
-        setLoadHistory(parsed.loadHistory ?? []);
+        setLoadHistory(savedCurrent ? (parsed.loadHistory ?? []) : (parsed.loadHistory ?? []).map((entry: LoadEntry) => ({ ...entry, day: entry.day + 2 })));
         setLoadInputs(parsed.loadInputs ?? {});
         setStreak(parsed.streak ?? 0);
         setFreezePasses(parsed.freezePasses ?? 1);
         setActiveDates(parsed.activeDates ?? []);
-        setBodyStats(savedV3 ? (parsed.bodyStats ?? []) : (parsed.bodyStats ?? []).filter((entry: BodyStat) => entry.date >= PLAN_START && entry.date <= today));
+        setBodyStats((parsed.bodyStats ?? []).filter((entry: BodyStat) => entry.date >= PLAN_START && entry.date <= today).map((entry: BodyStat) => ({ ...entry, day: planDayForDate(entry.date) })));
         setFoodChats(parsed.foodChats ?? []);
 
         const dates: string[] = parsed.activeDates ?? [];
@@ -304,10 +307,24 @@ export default function Home() {
     return { persona: "F" as Persona, line: "마지막까지 굶지 않기. 가볍게, 평소처럼, 끝까지 가면 됩니다." };
   }, [stageIndex, sevenDayAverage, travelMode]);
 
+  const monday = new Date(`${today}T12:00:00`);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
   const weekly = Array.from({ length: 7 }, (_, index) => {
-    const key = daysAgo(6 - index);
-    return { key, label: new Date(`${key}T12:00:00`).toLocaleDateString("ko-KR", { weekday: "short" }).replace("요일", ""), done: activeDates.includes(key) };
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + index);
+    const key = dateKey(date);
+    return { key, date: `${date.getMonth() + 1}.${date.getDate()}`, label: date.toLocaleDateString("ko-KR", { weekday: "short" }).replace("요일", ""), done: recordedWeightDates.has(key) };
   });
+  const weightStreak = useMemo(() => {
+    let count = 0;
+    const cursor = new Date(`${today}T12:00:00`);
+    if (!recordedWeightDates.has(today)) cursor.setDate(cursor.getDate() - 1);
+    while (recordedWeightDates.has(dateKey(cursor))) {
+      count += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    return count;
+  }, [recordedWeightDates, today]);
 
   const progressRows = Object.keys(DEFAULT_LOADS).map((name) => {
     const history = loadHistory.filter((item) => item.name === name).sort((a, b) => a.day - b.day);
@@ -320,7 +337,7 @@ export default function Home() {
       ? { state: "afternoon", label: "오후 코치", message: "아직 충분해요. 운동 한 세트만 시작하면 흐름이 다시 붙어요!" }
       : hour < 22
         ? { state: "night", label: "저녁 코치", message: "오늘이 얼마 안 남았어요. 딱 하나만 체크하고 편하게 쉬어요." }
-        : { state: "night urgent", label: "자정 임박", message: `제발… 자정 전에 하나만 기록해 주세요. 연속 ${streak}일을 잃을 순 없어요!` };
+        : { state: "night urgent", label: "자정 임박", message: `제발… 자정 전에 체중만 기록해 주세요. 연속 ${weightStreak}일을 잃을 순 없어요!` };
   const guide = selectedGuide ? EXERCISE_GUIDES[selectedGuide] : null;
   const recordChart = availableWeights.slice(-14);
   const recordMin = Math.min(...recordChart.map((entry) => entry.weight), 68) - 0.3;
@@ -445,7 +462,7 @@ export default function Home() {
       <header className="topbar">
         <a className="brand" href="#top" aria-label="50일 페이스메이커 홈"><span className="brand-mark">50</span><span>PACE<br />MAKER</span></a>
         <div className="header-actions">
-          <button className={todayComplete ? "streak-chip safe" : "streak-chip"} onClick={() => document.getElementById("streak")?.scrollIntoView()}><span>🔥</span><b>{streak}일 연속</b></button>
+          <button className={todayComplete ? "streak-chip safe" : "streak-chip"} onClick={() => document.getElementById("streak")?.scrollIntoView()}><span>🔥</span><b>{weightStreak}일 연속</b></button>
           <label className="travel-switch"><input type="checkbox" checked={travelMode} onChange={(event) => setTravelMode(event.target.checked)} /><span aria-hidden="true" />여행</label>
           <button className="avatar" aria-label="프로필">K</button>
         </div>
@@ -469,11 +486,10 @@ export default function Home() {
             <div className={`mascot-art ${mascot.state}`} role="img" aria-label={`${mascot.label} 호랑이 헬스 코치`} />
             <div className="streak-copy">
               <p>🔥 {mascot.label} · 연속 기록</p>
-              <h2>{todayComplete ? `오늘도 지켰어요. ${streak}일 연속!` : `오늘 기록하지 않으면 연속 ${streak}일을 잃게 돼요.`}</h2>
+              <h2>{todayComplete ? `오늘도 지켰어요. ${weightStreak}일 연속!` : `오늘 체중을 기록해야 연속 ${weightStreak}일을 지켜요.`}</h2>
               <span className="mascot-message">“{todayComplete ? "역시 해낼 줄 알았어요. 내일도 이 불꽃 그대로 만나요!" : mascot.message}”</span>
-              <small>{todayComplete ? "작은 행동 하나가 오늘의 불꽃을 지켰습니다." : "체중 기록이나 운동 한 세트만 완료해도 유지됩니다."}</small>
             </div>
-            <div className="week-dots">{weekly.map((item) => <div key={item.key} className={item.done ? "done" : item.key === today ? "today" : ""}><i>{item.done ? "✓" : ""}</i><span>{item.label}</span></div>)}</div>
+            <div className="week-dots">{weekly.map((item) => <div key={item.key} className={item.done ? "done" : item.key === today ? "today" : ""}><span className="week-date">{item.date}</span><i>{item.done ? "✓" : ""}</i><span>{item.label}</span></div>)}</div>
             <div className="streak-side"><span>🧊 보호권 {freezePasses}개</span><button onClick={() => { setTab("today"); document.getElementById("weight")?.focus(); }}>{todayComplete ? "연속 기록 안전" : "체중 기록으로 지키기"}</button></div>
           </section>
 
@@ -513,9 +529,9 @@ export default function Home() {
 
         {tab === "records" && <section className="records-page page-panel">
           <div className="page-title-row"><div><p className="kicker">MY 50-DAY LOG</p><h1>쌓인 기록</h1><p>체중의 방향과 기구 중량의 성장을 함께 확인하세요.</p></div><div className="record-summary"><span>누적 변화</span><strong>{change.toFixed(1)}<small>kg</small></strong></div></div>
-          <form className="past-record-card card" onSubmit={savePastRecord}><div><p className="section-label">BACKFILL RECORD</p><h2>지난 기록 입력</h2><span>8월 12일부터 접속일 사이의 날짜를 골라 빠진 기록을 채우세요.</span></div><label><span>기록 날짜</span><input type="date" min={PLAN_START} max={availableEnd} value={pastForm.date} onChange={(e) => setPastForm((value) => ({ ...value, date: e.target.value }))} /></label><label><span>체중 · 필수</span><div><input inputMode="decimal" placeholder="예: 73.2" value={pastForm.weight} onChange={(e) => setPastForm((value) => ({ ...value, weight: e.target.value }))} /><b>kg</b></div></label><label><span>근육량 · 선택</span><div><input inputMode="decimal" placeholder="예: 30.0" value={pastForm.muscle} onChange={(e) => setPastForm((value) => ({ ...value, muscle: e.target.value }))} /><b>kg</b></div></label><label><span>체지방률 · 선택</span><div><input inputMode="decimal" placeholder="예: 22.0" value={pastForm.bodyFat} onChange={(e) => setPastForm((value) => ({ ...value, bodyFat: e.target.value }))} /><b>%</b></div></label><button type="submit">지난 기록 저장 <span>→</span></button></form>
+          <form className="past-record-card card" onSubmit={savePastRecord}><div><p className="section-label">BACKFILL RECORD</p><h2>지난 기록 입력</h2><span>8월 10일부터 접속일 사이의 날짜를 골라 빠진 기록을 채우세요.</span></div><label><span>기록 날짜</span><input type="date" min={PLAN_START} max={availableEnd} value={pastForm.date} onChange={(e) => setPastForm((value) => ({ ...value, date: e.target.value }))} /></label><label><span>체중 · 필수</span><div><input inputMode="decimal" placeholder="예: 73.2" value={pastForm.weight} onChange={(e) => setPastForm((value) => ({ ...value, weight: e.target.value }))} /><b>kg</b></div></label><label><span>근육량 · 선택</span><div><input inputMode="decimal" placeholder="예: 30.0" value={pastForm.muscle} onChange={(e) => setPastForm((value) => ({ ...value, muscle: e.target.value }))} /><b>kg</b></div></label><label><span>체지방률 · 선택</span><div><input inputMode="decimal" placeholder="예: 22.0" value={pastForm.bodyFat} onChange={(e) => setPastForm((value) => ({ ...value, bodyFat: e.target.value }))} /><b>%</b></div></label><button type="submit">지난 기록 저장 <span>→</span></button></form>
           <div className="record-grid"><article className="record-table card"><div className="card-heading compact"><div><p className="section-label">WEIGHT LOG</p><h2>체중 기록</h2></div><span className="stage-pill">{weights.length}회</span></div><div className="table-head"><span>날짜 / 일차</span><span>체중</span><span>시작 대비</span></div>{[...weights].reverse().map((entry) => <div className="table-row" key={entry.day}><span>{dateFromPlanDay(entry.day).slice(5).replace("-", ".")} · D{entry.day}</span><strong>{entry.weight.toFixed(1)} kg</strong><em>{(entry.weight - 74).toFixed(1)} kg</em></div>)}</article>
-            <article className="rules-card card"><p className="section-label">STREAK SYSTEM</p><h2>연속성을 만드는 장치</h2><ol><li><span>🔥</span><div><b>{streak}일 연속 기록</b><p>하루 하나의 행동이면 불꽃이 이어집니다.</p></div></li><li><span>🧊</span><div><b>보호권 {freezePasses}개</b><p>딱 하루 놓치면 자동으로 연속 기록을 보호합니다.</p></div></li><li><span>✓</span><div><b>작게 시작하기</b><p>체중 기록이나 운동 한 세트만 해도 오늘은 성공.</p></div></li></ol></article>
+            <article className="rules-card card"><p className="section-label">STREAK SYSTEM</p><h2>연속성을 만드는 장치</h2><ol><li><span>🔥</span><div><b>{weightStreak}일 연속 체중 기록</b><p>아침 체중을 저장한 날만 불꽃이 이어집니다.</p></div></li><li><span>🧊</span><div><b>보호권 {freezePasses}개</b><p>딱 하루 놓치면 자동으로 연속 기록을 보호합니다.</p></div></li><li><span>✓</span><div><b>판정 기준은 명확하게</b><p>운동 체크와 별개로 체중 기록 여부만 표시합니다.</p></div></li></ol></article>
             <article className="record-chart-card card"><div className="card-heading compact"><div><p className="section-label">WEIGHT GRAPH</p><h2>최근 체중 추세</h2></div><span className="stage-pill">최근 {recordChart.length}회</span></div><div className="record-chart-summary"><div><span>현재</span><strong>{currentWeight.toFixed(1)}kg</strong></div><div><span>7회 평균</span><strong>{sevenDayAverage.toFixed(1)}kg</strong></div><div><span>목표 구간</span><strong>68—70kg</strong></div></div><div className="record-chart" aria-label="최근 체중 변화 그래프"><div className="target-band"><span>목표 68—70kg</span></div>{recordChart.map((entry, index) => { const bottom = ((entry.weight - recordMin) / (recordMax - recordMin)) * 100; const next = recordChart[index + 1]; const nextBottom = next ? ((next.weight - recordMin) / (recordMax - recordMin)) * 100 : bottom; const dx = 100 / Math.max(1, recordChart.length - 1); const dy = nextBottom - bottom; return <div className="record-point-wrap" key={entry.day} style={{ left: `${index * dx}%`, bottom: `${bottom}%` }}><i className="record-point" /><b>{entry.weight.toFixed(1)}</b><small>D{entry.day}</small>{next && <span className="record-line" style={{ width: `calc(${dx} * 1%)`, transform: `rotate(${-Math.atan2(dy, dx) * 180 / Math.PI}deg)`, transformOrigin: "left center" }} />}</div>; })}</div><p className="chart-footnote">하루 수치보다 같은 조건에서 쌓인 흐름을 보세요.</p></article>
             <article className="load-progress card"><div className="card-heading compact"><div><p className="section-label">STRENGTH PROGRESS</p><h2>들어 올린 무게의 성장</h2></div><span className="stage-pill">{loadHistory.length}세트 기록</span></div>{progressRows.length === 0 ? <div className="empty-progress"><strong>첫 중량을 기다리고 있어요.</strong><span>운동 탭에서 중량을 맞춘 뒤 완료 체크하면 여기에 성장 기록이 쌓입니다.</span></div> : <div className="load-table"><div className="load-head"><span>운동</span><span>첫 기록</span><span>최근</span><span>증가</span></div>{progressRows.map((row) => <div className="load-row" key={row.name}><b>{row.name}</b><span>{row.first}kg</span><strong>{row.latest}kg</strong><em>+{((row.latest ?? 0) - (row.first ?? 0)).toFixed(0)}kg</em></div>)}</div>}</article>
             <article className="body-composition card">
@@ -568,7 +584,7 @@ export default function Home() {
 
       {guide && selectedGuide && <div className="guide-backdrop" onMouseDown={() => setSelectedGuide(null)}><section className="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title" onMouseDown={(e) => e.stopPropagation()}><button className="guide-close" onClick={() => setSelectedGuide(null)} aria-label="자세 가이드 닫기">×</button><div className="guide-heading"><div><p>FORM GUIDE · {guide.focus}</p><h2 id="guide-title">{selectedGuide} 올바른 순서</h2></div><span>{guide.program ? "15 MIN" : "4 × 15"}</span></div><div className="guide-tabs" role="tablist"><button className={guideView === "photo" ? "active" : ""} onClick={() => setGuideView("photo")}>단계별 사진</button><button className={guideView === "motion" ? "active" : ""} onClick={() => setGuideView("motion")}>동작 영상</button></div>{guideView === "photo" ? <img className="guide-media" src={guide.image} alt={`${selectedGuide} 시작, 동작, 마무리 자세 순서`} /> : <div className="motion-player"><img src={guide.motion} alt={`${selectedGuide} 동작 영상 미리보기`} /><span>동작 영상 · 자동 반복</span></div>}{guide.program && <div className="guide-program">{guide.program.map((item, index) => <div key={item.time}><b>{String(index + 1).padStart(2, "0")}</b><span>{item.time}</span><strong>{item.target}</strong></div>)}</div>}<ol>{guide.steps.map((step, index) => <li key={step}><b>0{index + 1}</b><span>{step}</span></li>)}</ol><div className="guide-caution"><strong>!</strong><span><b>안전 체크</b>{guide.caution}</span></div><button className="guide-confirm" onClick={() => setSelectedGuide(null)}>자세 확인했어요</button></section></div>}
 
-      {dailyOpen && <div className="daily-backdrop"><section className="daily-card" style={{ backgroundImage: `linear-gradient(90deg, rgba(10,17,31,.94), rgba(10,17,31,.18)), url(${daily.image})` }} role="dialog" aria-modal="true" aria-labelledby="daily-title"><div className="daily-top"><div className="daily-streak">🔥 {streak}일 연속 · {dDay > 0 ? `D-${dDay}` : dDay === 0 ? "D-DAY" : `D+${Math.abs(dDay)}`}</div><div className={`daily-mascot ${mascot.state}`} role="img" aria-label={`${mascot.label} 호랑이 코치`} /></div><div className="daily-content"><p>DAY {accessDay} · {mascot.label}의 한 문장</p><h2 id="daily-title">{daily.quote}</h2><span>{todayComplete ? "오늘의 불꽃은 안전해요. 내일도 다시 만나요!" : mascot.message}</span><button onClick={closeDaily}>오늘도 이어가기 <b>→</b></button><small>목표일 9월 30일 · 오늘 기록하지 않으면 연속 {streak}일을 잃게 돼요.</small></div></section></div>}
+      {dailyOpen && <div className="daily-backdrop"><section className="daily-card" style={{ backgroundImage: `linear-gradient(90deg, rgba(10,17,31,.94), rgba(10,17,31,.18)), url(${daily.image})` }} role="dialog" aria-modal="true" aria-labelledby="daily-title"><div className="daily-top"><div className="daily-streak">🔥 {weightStreak}일 연속 · {dDay > 0 ? `D-${dDay}` : dDay === 0 ? "D-DAY" : `D+${Math.abs(dDay)}`}</div><div className={`daily-mascot ${mascot.state}`} role="img" aria-label={`${mascot.label} 호랑이 코치`} /></div><div className="daily-content"><p>DAY {accessDay} · {mascot.label}의 한 문장</p><h2 id="daily-title">{daily.quote}</h2><span>{todayComplete ? "오늘 체중 기록 완료. 불꽃을 지켰어요!" : mascot.message}</span><button onClick={closeDaily}>오늘도 이어가기 <b>→</b></button></div></section></div>}
 
       {modal && <div className="modal-backdrop" role="presentation" onMouseDown={() => setModal(null)}><section className={`coach-modal modal-${modal.persona.toLowerCase()}`} role="dialog" aria-modal="true" aria-labelledby="coach-title" onMouseDown={(e) => e.stopPropagation()}><button className="modal-close" onClick={() => setModal(null)} aria-label="코칭 닫기">×</button><div className="modal-persona">{modal.persona}</div><p>{modal.eyebrow}</p><h2 id="coach-title">{modal.title}</h2><blockquote>{modal.body}</blockquote><button className="modal-confirm" onClick={() => setModal(null)}>좋아요, 그렇게 할게요</button></section></div>}
     </main>

@@ -277,7 +277,7 @@ body { font-size: 17px; line-height: 1.65; letter-spacing: -.015em; }
 .streak-copy p { font-size: 12px; margin-bottom: 7px; }.streak-copy h2 { font-size: clamp(21px, 2.2vw, 28px); line-height: 1.28; color: #8f2415; }
 .streak-panel.safe .streak-copy h2 { color: #315f40; }
 .streak-copy .mascot-message { margin-top: 9px; color: var(--ink); font-size: 14px; font-weight: 750; line-height: 1.5; }.streak-copy small { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; }
-.week-dots div { font-size: 10px; }.week-dots i { width: 32px; height: 32px; font-size: 13px; }.streak-side span { font-size: 11px; }.streak-side button { min-height: 44px; font-size: 11px; }
+.week-dots div { font-size: 10px; }.week-dots .week-date { color: #69717b; font: 800 9px/1 var(--font-geist-mono); }.week-dots i { width: 32px; height: 32px; font-size: 13px; }.streak-side span { font-size: 11px; }.streak-side button { min-height: 44px; font-size: 11px; }
 @keyframes mascot-plead { 50% { transform: translateY(-4px) rotate(-1.5deg); } }
 
 /* Exercise selection and form guide */
