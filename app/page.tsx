@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-type Tab = "today" | "workout" | "records";
+type Tab = "today" | "workout" | "records" | "food";
 type Persona = "T" | "F";
 type WeightEntry = { day: number; weight: number };
 type LoadEntry = { day: number; name: string; kg: number };
@@ -10,6 +10,8 @@ type Interval = { time: string; target: string };
 type Exercise = { name: string; detail: string; weighted?: boolean; intervals?: Interval[] };
 type BodyStat = { date: string; day: number; weight: number; muscle: number; bodyFat: number; bmi: number };
 type ExerciseGuide = { image: string; motion: string; focus: string; steps: string[]; caution: string; program?: Interval[] };
+type FoodAdvice = { name: string; verdict: string; tone: "good" | "careful" | "limit" | "unknown"; calories: string; serving: string; fact: string; encouragement: string; actions: string[] };
+type FoodChat = { id: number; query: string; advice: FoodAdvice };
 
 const PLAN_START = "2026-08-12";
 const PLAN_TARGET = "2026-09-30";
@@ -105,6 +107,35 @@ const DAILY = [
 
 const STORAGE_KEY = "pace50-state-v3";
 
+const FOOD_LIBRARY: Array<{ aliases: string[]; advice: FoodAdvice }> = [
+  { aliases: ["짜장면", "자장면"], advice: { name: "짜장면", verdict: "먹어도 돼요 · 양 조절 필요", tone: "careful", calories: "약 800—950 kcal", serving: "보통 1그릇 · 가게와 조리법에 따라 차이", fact: "면과 춘장 소스가 함께 들어가 탄수화물·나트륨이 높은 한 끼예요. 한 그릇을 다 비우면 오늘 식사 중 가장 큰 열량이 될 가능성이 큽니다.", encouragement: "짜장면 한 끼가 감량을 망치지는 않아요. 오늘은 ‘안 먹기’보다 ‘덜 먹고 만족하기’를 연습해요.", actions: ["면은 70% 정도에서 멈추기", "군만두·볶음밥·달달한 음료는 함께 먹지 않기", "다음 끼니는 굶지 말고 단백질+채소 위주로 평소의 70—80%"] } },
+  { aliases: ["삶은 달걀", "삶은 계란", "달걀", "계란"], advice: { name: "삶은 달걀", verdict: "좋은 선택이에요", tone: "good", calories: "1개 약 70—80 kcal", serving: "간식 1—2개", fact: "한 개에 단백질이 약 6g 들어 있어 포만감을 보태기 좋습니다. 다만 여러 개를 소스와 함께 먹으면 열량과 나트륨도 늘어요.", encouragement: "배고픔을 참는 대신 달걀처럼 씹는 간식을 고른 건 오래 가는 감량 습관이에요.", actions: ["간식은 1—2개", "소금·마요네즈는 최소화", "미숫가루나 과자 대신 물과 함께 천천히 먹기"] } },
+  { aliases: ["미숫가루"], advice: { name: "미숫가루", verdict: "자주 마시기엔 주의", tone: "limit", calories: "약 180—350 kcal", serving: "설탕·우유·분말 양에 따라 큰 차이", fact: "곡물 분말과 당을 액체로 빠르게 마셔 포만감 대비 열량이 높아지기 쉬워요.", encouragement: "완전히 금지할 필요는 없어요. 달게 마시는 한 잔을 ‘가끔 즐거움 하나’로만 남겨두면 됩니다.", actions: ["무가당·작은 컵으로 선택", "식사와 중복하지 말고 간식으로 계산", "평소에는 삶은 달걀·사과·그릭요거트로 교체"] } },
+  { aliases: ["라면"], advice: { name: "라면", verdict: "먹어도 돼요 · 조합이 중요", tone: "careful", calories: "약 450—550 kcal", serving: "봉지라면 1개 기준 추정", fact: "열량뿐 아니라 나트륨이 높고 단백질·채소가 부족해 한 봉지만 먹어도 금방 허기질 수 있어요.", encouragement: "라면을 먹는 날도 계획 안에 있어요. 무엇을 더하고 무엇을 남길지만 정하면 됩니다.", actions: ["면은 70—80%, 국물은 남기기", "달걀 1개와 채소 추가", "밥·김밥·만두는 같이 먹지 않기"] } },
+  { aliases: ["삼겹살", "목살", "고기 회식"], advice: { name: "돼지고기 구이", verdict: "적당량이면 괜찮아요", tone: "careful", calories: "약 450—650 kcal", serving: "구운 고기 150—200g 추정", fact: "단백질은 얻을 수 있지만 지방 비율이 높고 술·밥·소스가 붙으면 한 끼 열량이 빠르게 커져요.", encouragement: "회식에서도 고기 자체보다 곁들이는 선택이 결과를 좌우해요. 한 가지만 덜어내도 충분합니다.", actions: ["쌈채소와 함께 150—200g", "술을 마시면 밥·면은 먼저 치우기", "쌈장·기름장과 후식 냉면 최소화"] } },
+  { aliases: ["떡볶이"], advice: { name: "떡볶이", verdict: "양을 정하고 먹어요", tone: "limit", calories: "약 400—600 kcal", serving: "1인분 추정 · 토핑 제외", fact: "떡과 단맛 있는 소스 중심이라 탄수화물 밀도가 높고 단백질은 적은 편이에요.", encouragement: "먹고 싶은 날엔 작은 양으로 선명하게 즐기고, 애매하게 계속 집어 먹는 흐름만 끊어요.", actions: ["1인분의 70% 또는 작은 컵 선택", "튀김·순대·주먹밥은 추가하지 않기", "달걀이나 어묵을 곁들이고 소스는 남기기"] } },
+  { aliases: ["치킨", "닭튀김"], advice: { name: "치킨", verdict: "부위와 양을 먼저 정해요", tone: "limit", calories: "약 600—1,000 kcal", serving: "반 마리 안팎 · 조리법에 따라 차이", fact: "튀김옷과 소스, 껍질 때문에 같은 닭고기라도 열량 차이가 크게 납니다.", encouragement: "치킨을 먹는 날에도 멈출 지점을 미리 정하면 계획은 그대로 이어져요.", actions: ["구이·후라이드 순으로 선택하고 양념은 덜기", "3—5조각을 접시에 덜어 먹기", "맥주·치즈볼·감자튀김은 함께 먹지 않기"] } },
+  { aliases: ["김밥"], advice: { name: "김밥", verdict: "한 줄은 한 끼로 계산", tone: "careful", calories: "약 400—550 kcal", serving: "일반 김밥 1줄 추정", fact: "작아 보여도 밥과 참기름이 모여 한 줄이면 한 끼 열량에 가까워요.", encouragement: "편의식 중에서는 양을 세기 쉬운 편이에요. 한 줄을 천천히 먹고 거기서 끝내면 됩니다.", actions: ["한 줄 또는 2/3줄", "라면·떡볶이와 세트로 먹지 않기", "단백질이 적으면 달걀 1개 보완"] } },
+  { aliases: ["닭가슴살"], advice: { name: "닭가슴살", verdict: "좋은 단백질 선택", tone: "good", calories: "약 150—200 kcal", serving: "조리된 100—120g 추정", fact: "단백질을 채우기 좋지만 이것만 먹는 극단적인 식단보다 평소 식사에 보완하는 방식이 오래 갑니다.", encouragement: "특별식을 버티는 것보다 평소 한 끼의 균형을 만드는 선택이 더 강해요.", actions: ["한 끼 손바닥 크기 1장", "밥 1/2—2/3공기와 채소 곁들이기", "달고 짠 소스는 절반만"] } },
+  { aliases: ["바나나"], advice: { name: "바나나", verdict: "운동 전후 간식으로 좋아요", tone: "good", calories: "약 90—110 kcal", serving: "중간 크기 1개", fact: "간편한 탄수화물과 칼륨을 얻을 수 있지만 여러 개를 연달아 먹으면 간식 열량이 커집니다.", encouragement: "달달한 음료 대신 바나나 하나를 씹어 먹는 선택이면 방향이 아주 좋아요.", actions: ["한 번에 1개", "운동 전후 또는 출출한 오후에", "주스·우유와 갈기보다 그대로 씹어 먹기"] } },
+  { aliases: ["그릭요거트", "요거트", "요구르트"], advice: { name: "그릭요거트", verdict: "무가당이면 좋은 선택", tone: "good", calories: "약 100—180 kcal", serving: "제품 1컵 · 당과 지방에 따라 차이", fact: "제품마다 첨가당과 지방 함량 차이가 커서 앞면 문구보다 영양정보의 총 내용량을 확인하는 게 정확합니다.", encouragement: "라벨 한 번 보는 습관이 참는 의지보다 훨씬 오래 갑니다.", actions: ["무가당 제품 1컵", "그래놀라·꿀은 합쳐서 한 숟갈 이내", "과일은 한 줌만 추가"] } },
+  { aliases: ["아메리카노", "블랙커피"], advice: { name: "아메리카노", verdict: "부담이 적어요", tone: "good", calories: "약 5—15 kcal", serving: "시럽·크림 없는 1잔", fact: "무가당 아메리카노는 열량 부담이 적지만 수면을 방해하면 다음 날 식욕과 운동 리듬에 영향을 줄 수 있어요.", encouragement: "달달한 음료 대신 고른 선택은 오늘의 작지만 확실한 승리예요.", actions: ["시럽·설탕·크림 없이", "늦은 오후에는 디카페인 고려", "물 섭취를 따로 챙기기"] } },
+];
+
+function analyzeFood(query: string): FoodAdvice {
+  const normalized = query.replaceAll(" ", "").toLowerCase();
+  const match = FOOD_LIBRARY.find((item) => item.aliases.some((alias) => normalized.includes(alias.replaceAll(" ", "").toLowerCase())));
+  if (match) {
+    const countMatch = normalized.match(/([2-5])개/);
+    if (countMatch && match.advice.name === "삶은 달걀") {
+      const count = Number(countMatch[1]);
+      return { ...match.advice, calories: `${count}개 약 ${count * 70}—${count * 80} kcal`, serving: `${count}개 기준 · 간식 권장은 보통 1—2개`, verdict: count <= 2 ? "좋은 선택이에요" : "먹어도 되지만 양은 줄여요", tone: count <= 2 ? "good" : "careful" };
+    }
+    return match.advice;
+  }
+  return { name: "음식 정보 더 필요", verdict: "양과 조리법을 알려주세요", tone: "unknown", calories: "아직 계산하기 어려워요", serving: "음식명 · 양 · 조리법 · 제품명", fact: "같은 음식도 1인분 크기, 튀김·볶음·구이 같은 조리법, 소스와 브랜드에 따라 열량 차이가 큽니다.", encouragement: "정확히 몰라도 괜찮아요. 먹을 양을 먼저 정하는 것만으로도 충분히 좋은 시작입니다.", actions: ["예: ‘돈가스 1인분, 소스 절반 먹어도 돼?’처럼 질문", "포장식품이면 총 내용량과 kcal를 함께 입력", "모르는 음식은 평소 양의 70—80%에서 멈추기"] };
+}
+
 function stageForDay(day: number) {
   if (day <= 10) return 0;
   if (day <= 30) return 1;
@@ -167,6 +198,8 @@ export default function Home() {
   const [bodyStats, setBodyStats] = useState<BodyStat[]>([]);
   const [bodyForm, setBodyForm] = useState({ weight: "71.8", muscle: "30.0", bodyFat: "22.0" });
   const [pastForm, setPastForm] = useState({ date: dateKey(), weight: "", muscle: "", bodyFat: "" });
+  const [foodQuery, setFoodQuery] = useState("");
+  const [foodChats, setFoodChats] = useState<FoodChat[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   const today = accessDate;
@@ -196,6 +229,7 @@ export default function Home() {
         setFreezePasses(parsed.freezePasses ?? 1);
         setActiveDates(parsed.activeDates ?? []);
         setBodyStats(savedV3 ? (parsed.bodyStats ?? []) : (parsed.bodyStats ?? []).filter((entry: BodyStat) => entry.date >= PLAN_START && entry.date <= today));
+        setFoodChats(parsed.foodChats ?? []);
 
         const dates: string[] = parsed.activeDates ?? [];
         const last = [...dates].sort().at(-1);
@@ -233,8 +267,8 @@ export default function Home() {
 
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats }));
-  }, [weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, hydrated]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats }));
+  }, [weights, travelMode, checks, nextPersona, loadHistory, loadInputs, streak, freezePasses, activeDates, bodyStats, foodChats, hydrated]);
 
   const stageIndex = stageForDay(day);
   const availableWeights = weights.filter((entry) => entry.day <= accessDay);
@@ -392,6 +426,18 @@ export default function Home() {
     setSelectedDate(clampPlanDate(dateKey(next), availableEnd));
   }
 
+  function askFood(event: FormEvent) {
+    event.preventDefault();
+    const query = foodQuery.trim();
+    if (!query) return;
+    setFoodChats((items) => [...items.slice(-7), { id: Date.now(), query, advice: analyzeFood(query) }]);
+    setFoodQuery("");
+  }
+
+  function askQuickFood(query: string) {
+    setFoodChats((items) => [...items.slice(-7), { id: Date.now(), query, advice: analyzeFood(query) }]);
+  }
+
   return (
     <main className={travelMode ? "app travel-on" : "app"}>
       {travelMode && <div className="travel-banner"><span>여행 모드 · 오늘의 목표는 유지</span><strong>한 끼에 즐거움 하나</strong></div>}
@@ -490,9 +536,35 @@ export default function Home() {
             </article>
           </div>
         </section>}
+
+        {tab === "food" && <section className="food-page page-panel">
+          <div className="page-title-row"><div><p className="kicker">AI CALORIE COACH</p><h1>이거 먹어도 될까?</h1><p>음식과 양을 편하게 물어보세요. 50일 목표에 맞춘 현실적인 한 끼 전략을 바로 드려요.</p></div><div className="food-page-badge"><span>T × F</span><strong>식단 코치</strong></div></div>
+          <div className="food-layout">
+            <article className="food-chat card">
+              <div className="food-chat-head"><div className="food-coach-avatar">AI</div><div><b>칼로리 페이스메이커</b><span>열량 범위 · 적정량 · 함께 줄일 것</span></div><i>ONLINE</i></div>
+              <div className="food-messages" aria-live="polite">
+                <div className="food-intro"><span>안녕하세요! 이렇게 물어보세요.</span><strong>“오늘 짜장면 먹어도 돼?”</strong><p>무조건 금지하는 대신, 먹을 양과 다음 행동까지 함께 정해드릴게요.</p></div>
+                {foodChats.map((chat) => <div className="food-exchange" key={chat.id}>
+                  <div className="food-user-bubble">{chat.query}</div>
+                  <div className={`food-answer ${chat.advice.tone}`}>
+                    <div className="food-answer-top"><div><span>{chat.advice.name}</span><h2>{chat.advice.verdict}</h2></div><div className="calorie-range"><b>{chat.advice.calories}</b><small>{chat.advice.serving}</small></div></div>
+                    <div className="tf-advice"><div><b>T · 팩트</b><p>{chat.advice.fact}</p></div><div><b>F · 페이스</b><p>{chat.advice.encouragement}</p></div></div>
+                    <ol>{chat.advice.actions.map((action, index) => <li key={action}><span>{index + 1}</span>{action}</li>)}</ol>
+                  </div>
+                </div>)}
+              </div>
+              <form className="food-input" onSubmit={askFood}><label htmlFor="food-question">음식 상담 질문</label><div><textarea id="food-question" rows={2} value={foodQuery} onChange={(e) => setFoodQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} placeholder="예: 삶은 달걀 2개 먹어도 될까?" /><button type="submit" disabled={!foodQuery.trim()} aria-label="음식 질문 보내기">→</button></div><small>열량은 조리법·분량·브랜드에 따라 달라지는 참고 범위이며 의료 진단이나 처방이 아닙니다.</small></form>
+            </article>
+            <aside className="food-sidebar">
+              <section className="food-quick card"><p className="section-label">QUICK QUESTIONS</p><h2>바로 물어보기</h2><div>{["짜장면 먹어도 돼?", "삶은 달걀 2개 어때?", "미숫가루 괜찮아?", "삼겹살 회식은 어떻게 먹지?", "라면 먹고 싶어", "아메리카노는 괜찮아?"].map((question) => <button key={question} onClick={() => askQuickFood(question)}>{question}<span>→</span></button>)}</div></section>
+              <section className="food-rule-card card"><p className="section-label">TODAY&apos;S RULE</p><h2>금지보다 조절</h2><ul><li><b>70—80%</b><span>평소 먹던 양에서 조금만 덜기</span></li><li><b>1/2—2/3</b><span>밥은 반 공기에서 2/3공기</span></li><li><b>NO 보상</b><span>많이 먹어도 다음 끼니 굶지 않기</span></li></ul></section>
+              <section className="food-source-note"><b>영양 데이터 기준</b><span>식품의약품안전처 K-FIND의 1회 분량·100g(또는 100mL) 자료를 참고하며 실제 음식은 차이가 날 수 있어요.</span></section>
+            </aside>
+          </div>
+        </section>}
       </section>
 
-      <nav className="bottom-nav" aria-label="주 메뉴"><button className={tab === "today" ? "active" : ""} onClick={() => setTab("today")}><span className="nav-icon">●</span><b>오늘</b></button><button className={tab === "workout" ? "active" : ""} onClick={() => setTab("workout")}><span className="nav-icon">＋</span><b>운동</b>{completed > 0 && <i>{completed}</i>}</button><button className={tab === "records" ? "active" : ""} onClick={() => setTab("records")}><span className="nav-icon">▥</span><b>기록</b></button></nav>
+      <nav className="bottom-nav" aria-label="주 메뉴"><button className={tab === "today" ? "active" : ""} onClick={() => setTab("today")}><span className="nav-icon">●</span><b>오늘</b></button><button className={tab === "workout" ? "active" : ""} onClick={() => setTab("workout")}><span className="nav-icon">＋</span><b>운동</b>{completed > 0 && <i>{completed}</i>}</button><button className={tab === "food" ? "active" : ""} onClick={() => setTab("food")}><span className="nav-icon">✦</span><b>AI 식단</b></button><button className={tab === "records" ? "active" : ""} onClick={() => setTab("records")}><span className="nav-icon">▥</span><b>기록</b></button></nav>
 
       {guide && selectedGuide && <div className="guide-backdrop" onMouseDown={() => setSelectedGuide(null)}><section className="guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-title" onMouseDown={(e) => e.stopPropagation()}><button className="guide-close" onClick={() => setSelectedGuide(null)} aria-label="자세 가이드 닫기">×</button><div className="guide-heading"><div><p>FORM GUIDE · {guide.focus}</p><h2 id="guide-title">{selectedGuide} 올바른 순서</h2></div><span>{guide.program ? "15 MIN" : "4 × 15"}</span></div><div className="guide-tabs" role="tablist"><button className={guideView === "photo" ? "active" : ""} onClick={() => setGuideView("photo")}>단계별 사진</button><button className={guideView === "motion" ? "active" : ""} onClick={() => setGuideView("motion")}>동작 영상</button></div>{guideView === "photo" ? <img className="guide-media" src={guide.image} alt={`${selectedGuide} 시작, 동작, 마무리 자세 순서`} /> : <div className="motion-player"><img src={guide.motion} alt={`${selectedGuide} 동작 영상 미리보기`} /><span>동작 영상 · 자동 반복</span></div>}{guide.program && <div className="guide-program">{guide.program.map((item, index) => <div key={item.time}><b>{String(index + 1).padStart(2, "0")}</b><span>{item.time}</span><strong>{item.target}</strong></div>)}</div>}<ol>{guide.steps.map((step, index) => <li key={step}><b>0{index + 1}</b><span>{step}</span></li>)}</ol><div className="guide-caution"><strong>!</strong><span><b>안전 체크</b>{guide.caution}</span></div><button className="guide-confirm" onClick={() => setSelectedGuide(null)}>자세 확인했어요</button></section></div>}
 
